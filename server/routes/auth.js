@@ -70,6 +70,15 @@ function generateToken(user) {
   );
 }
 
+// Maximum allowed registered accounts in the system
+export const MAX_USERS = parseInt(process.env.MAX_USERS || '5', 10);
+
+// Helper to check current user count in PostgreSQL
+async function getUserCount() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM users');
+  return rows[0]?.count || 0;
+}
+
 // ------------------------------------------------------------------------------
 // POST /api/auth/register
 // ------------------------------------------------------------------------------
@@ -90,8 +99,16 @@ router.post('/register', authLimiter, async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Attempt PostgreSQL insert
+    // Attempt PostgreSQL user creation with account limit enforcement
     try {
+      const currentCount = await getUserCount();
+      if (currentCount >= MAX_USERS) {
+        return res.status(403).json({
+          error: 'ACCOUNT_LIMIT_REACHED',
+          message: `Account limit reached. Only ${MAX_USERS} accounts are allowed.`,
+        });
+      }
+
       const { rows } = await pool.query(
         `INSERT INTO users (username, password_hash)
          VALUES ($1, $2)
@@ -123,6 +140,13 @@ router.post('/register', authLimiter, async (req, res) => {
       // If database is not configured (e.g. no .env password or table not migrated),
       // seamlessly register into memory store so development remains unblocked
       console.warn('⚠️  PostgreSQL unconfigured or unreachable. Using in-memory store for user:', dbErr.message);
+
+      if (memoryUsers.size >= MAX_USERS) {
+        return res.status(403).json({
+          error: 'ACCOUNT_LIMIT_REACHED',
+          message: `Account limit reached. Only ${MAX_USERS} accounts are allowed.`,
+        });
+      }
 
       if (memoryUsers.has(lowerUsername)) {
         return res.status(409).json({
@@ -255,4 +279,5 @@ router.get('/me', authenticateToken, (req, res) => {
   });
 });
 
+export { memoryUsers };
 export default router;

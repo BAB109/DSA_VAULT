@@ -70,7 +70,10 @@ export const authService = {
 
       return _saveSession(data.user, data.token);
     } catch (err) {
-      if (err.status === 409 || err.message === 'USERNAME_TAKEN') {
+      if (err.status === 403 || err.message === 'ACCOUNT_LIMIT_REACHED' || err.data?.error === 'ACCOUNT_LIMIT_REACHED') {
+        throw new Error('ACCOUNT_LIMIT_REACHED');
+      }
+      if (err.status === 409 || err.message === 'USERNAME_TAKEN' || err.data?.error === 'USERNAME_TAKEN') {
         throw new Error('USERNAME_TAKEN');
       }
       throw err;

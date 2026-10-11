@@ -11,6 +11,7 @@ import { Input, Button } from '../components/FormControls';
 
 const ERROR_MESSAGES = {
   USERNAME_TAKEN: 'That username is already taken. Please choose another.',
+  ACCOUNT_LIMIT_REACHED: 'Account limit reached. No more accounts can be created.',
 };
 
 // Password strength meter (purely cosmetic helper)
