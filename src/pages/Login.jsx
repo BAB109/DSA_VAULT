@@ -40,7 +40,7 @@ export default function Login() {
       await login({ username: form.username, password: form.password });
       navigate('/', { replace: true });
     } catch (err) {
-      setErrors({ form: ERROR_MESSAGES[err.message] ?? 'Login failed. Please try again.' });
+      setErrors({ form: ERROR_MESSAGES[err.message] || err.message || 'Login failed. Please try again.' });
     } finally {
       setSubmitting(false);
     }

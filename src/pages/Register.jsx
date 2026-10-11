@@ -69,7 +69,7 @@ export default function Register() {
       await register({ username: form.username, password: form.password });
       navigate('/', { replace: true });
     } catch (err) {
-      setErrors({ form: ERROR_MESSAGES[err.message] ?? 'Registration failed. Please try again.' });
+      setErrors({ form: ERROR_MESSAGES[err.message] || err.message || 'Registration failed. Please try again.' });
     } finally {
       setSubmitting(false);
     }
