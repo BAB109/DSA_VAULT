@@ -121,7 +121,7 @@ export default app;
 let server;
 
 if (process.env.NODE_ENV !== 'test') {
-  server = app.listen(PORT, () => {
+  server = app.listen(PORT, '0.0.0.0', () => {
     logger.info(`📡 DSA Vault Backend Server running on port ${PORT}`, {
       port: PORT,
       env: process.env.NODE_ENV || 'development',
