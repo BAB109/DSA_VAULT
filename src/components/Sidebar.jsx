@@ -54,19 +54,29 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger */}
-      <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-lg shadow-lg"
-        onClick={() => setMobileOpen((v) => !v)}
-        aria-label="Toggle sidebar"
-      >
-        {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
+      {/* Mobile Top Header Bar */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 border-b border-gray-800 z-30 flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-indigo-600 rounded flex items-center justify-center shrink-0">
+              <BookMarked size={14} className="text-white" />
+            </div>
+            <span className="font-bold text-white text-sm">DSA Vault</span>
+          </div>
+        </div>
+      </header>
 
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity"
           onClick={closeMobile}
         />
       )}
@@ -74,21 +84,30 @@ export function Sidebar() {
       {/* Sidebar panel */}
       <aside
         className={`
-          fixed top-0 left-0 h-full w-64 bg-gray-900 flex flex-col z-40
-          transition-transform duration-200
+          fixed top-0 left-0 h-full w-64 bg-gray-900 flex flex-col z-50
+          transition-transform duration-200 ease-in-out shadow-2xl lg:shadow-none
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0 lg:static lg:flex
+          lg:translate-x-0 lg:static lg:flex shrink-0
         `}
       >
         {/* Brand */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-700">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-            <BookMarked size={16} className="text-white" />
+        <div className="flex items-center justify-between px-5 py-5 border-b border-gray-700/80">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0 shadow-xs">
+              <BookMarked size={16} className="text-white" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm leading-none">DSA Vault</p>
+              <p className="text-gray-400 text-xs mt-0.5">Learning Journal</p>
+            </div>
           </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-none">DSA Vault</p>
-            <p className="text-gray-400 text-xs mt-0.5">Learning Journal</p>
-          </div>
+          <button
+            onClick={closeMobile}
+            className="lg:hidden p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Nav items */}

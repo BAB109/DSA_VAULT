@@ -95,7 +95,7 @@ export default function ActivityCalendar({ calendar }) {
       </div>
 
       {/* Heatmap Grid & Tooltip Area */}
-      <div className="relative overflow-x-auto pb-2 focus:outline-none">
+      <div className="relative overflow-x-auto pb-2 focus:outline-none max-w-full">
         {/* Floating Tooltip */}
         {activeCell && (
           <div
@@ -120,14 +120,14 @@ export default function ActivityCalendar({ calendar }) {
           </div>
         )}
 
-        <div className="inline-block min-w-full">
+        <div className="inline-block min-w-max pb-1">
           {/* Month labels header */}
           <div className="flex text-2xs font-semibold text-gray-400 pl-8 mb-1.5 select-none h-4 relative">
             {months.map((m, idx) => (
               <span
                 key={`${m.label}-${idx}`}
                 className="absolute"
-                style={{ left: `${m.weekIndex * 15 + 32}px` }}
+                style={{ left: `${m.weekIndex * 16 + 32}px` }}
               >
                 {m.label}
               </span>
@@ -141,7 +141,7 @@ export default function ActivityCalendar({ calendar }) {
             aria-label="Daily DSA Activity Heatmap for the past year"
           >
             {/* Weekday Labels (Mon, Wed, Fri) */}
-            <div className="flex flex-col gap-1 pr-1.5 text-2xs text-gray-400 select-none justify-between h-[104px]">
+            <div className="flex flex-col gap-1 pr-1.5 text-2xs text-gray-400 select-none justify-between h-[104px] w-7 shrink-0 text-right">
               <span className="h-3 leading-3 opacity-0">Sun</span>
               <span className="h-3 leading-3">Mon</span>
               <span className="h-3 leading-3 opacity-0">Tue</span>

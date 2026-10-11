@@ -94,20 +94,23 @@ export default function Dashboard() {
   const recent = problems.slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Page Header with Timezone Indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {format(new Date(), 'EEEE, MMMM d, yyyy')} · Timezone:{' '}
-            <span className="font-mono text-gray-700 font-medium">{metrics.timezone || 'UTC'}</span>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+            <span>{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>
+            <span className="text-gray-300">•</span>
+            <span>
+              Timezone: <span className="font-mono text-gray-700 font-semibold bg-gray-100 px-1.5 py-0.5 rounded text-xs">{metrics.timezone || 'UTC'}</span>
+            </span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => navigate('/add')}
-            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-xs transition-colors shrink-0"
           >
             <span>+</span> Log New Problem
           </button>
@@ -115,75 +118,115 @@ export default function Dashboard() {
       </div>
 
       {/* Primary Dashboard Metrics Grid (8 Core Required Metrics) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* 1. Total Recorded */}
         <StatCard
           label="Total Recorded"
           value={metrics.totalProblems}
-          sub="all problems"
+          sub="All problems in vault"
           icon={CheckCircle}
           iconBg="bg-indigo-50"
           iconColor="text-indigo-600"
         />
+
+        {/* 2. Solved Today */}
         <StatCard
           label="Solved Today"
           value={metrics.problemsSolvedToday}
-          sub={`Goal: ${metrics.dailyGoal}/day`}
+          sub={`Goal: ${metrics.dailyProblemGoal || metrics.dailyGoal}/day`}
           icon={Clock}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
         />
+
+        {/* 3. Current Streak */}
         <StatCard
           label="Current Streak"
           value={`${metrics.currentStreak}d`}
-          sub={metrics.currentStreak > 0 ? 'streak active' : 'no activity'}
+          sub={metrics.currentStreak > 0 ? 'Consecutive daily activity' : 'No activity streak'}
           icon={Flame}
           iconBg="bg-orange-50"
           iconColor="text-orange-500"
         />
+
+        {/* 4. Due Revisions */}
         <StatCard
-          label="Due Revision"
+          label="Due Revisions"
           value={metrics.problemsDueForRevision}
-          sub={`${metrics.overdueCount} overdue`}
+          sub={metrics.overdueCount > 0 ? `${metrics.overdueCount} overdue for review` : 'All caught up today'}
           icon={RotateCcw}
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
         />
+
+        {/* 5. Independent Solve Rate */}
         <StatCard
-          label="Independent"
+          label="Independent Solve Rate"
           value={`${metrics.independentSolvingRate}%`}
-          sub="solve rate"
+          sub="Solved without hints or help"
           icon={Sparkles}
           iconBg="bg-emerald-50"
           iconColor="text-emerald-600"
         />
+
+        {/* 6. Better Review Rate */}
         <StatCard
-          label="Better Review"
+          label="Better Review Rate"
           value={`${metrics.betterSolutionReviewRate}%`}
-          sub="reviewed"
+          sub="Optimal solution reviewed"
           icon={CheckCheck}
           iconBg="bg-purple-50"
           iconColor="text-purple-600"
         />
+
+        {/* 7. Easy / Medium / Hard */}
         <StatCard
-          label="Easy / Med / Hard"
-          value={`${metrics.difficultyCounts.Easy}/${metrics.difficultyCounts.Medium}/${metrics.difficultyCounts.Hard}`}
-          sub="by difficulty"
+          label="Easy / Medium / Hard"
           icon={Brain}
           iconBg="bg-teal-50"
           iconColor="text-teal-600"
-        />
+          sub={`Total ${metrics.totalProblems} by difficulty`}
+        >
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              {metrics.difficultyCounts?.Easy ?? 0} Easy
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+              {metrics.difficultyCounts?.Medium ?? 0} Med
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+              {metrics.difficultyCounts?.Hard ?? 0} Hard
+            </span>
+          </div>
+        </StatCard>
+
+        {/* 8. Daily Goals */}
         <StatCard
           label="Daily Goals"
           value={`${metrics.dailyProblemGoalProgress}%`}
-          sub={`${metrics.problemsSolvedToday}/${metrics.dailyProblemGoal} prob · ${metrics.revisionsCompletedToday}/${metrics.dailyRevisionGoal} rev`}
           icon={Target}
           iconBg="bg-rose-50"
           iconColor="text-rose-600"
+          sub={
+            <div className="mt-1.5 space-y-0.5 text-xs text-gray-500 font-medium">
+              <div className="flex items-center justify-between gap-2">
+                <span>Problems:</span>
+                <span className="font-bold text-gray-700">{metrics.problemsSolvedToday} / {metrics.dailyProblemGoal}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span>Revisions:</span>
+                <span className="font-bold text-gray-700">{metrics.revisionsCompletedToday} / {metrics.dailyRevisionGoal}</span>
+              </div>
+            </div>
+          }
         />
       </div>
 
       {/* Daily Goals Progress (Problems Solved + Revisions Completed) */}
-      <div className="p-4 bg-white border border-gray-200/90 rounded-xl shadow-xs">
+      <div className="p-4 sm:p-5 bg-white border border-gray-200/90 rounded-xl shadow-2xs">
         <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Target size={18} className="text-indigo-600" />
@@ -208,22 +251,22 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3.5">
           {/* Goal 1: Problems Solved Per Day */}
-          <div className="p-3 bg-indigo-50/40 border border-indigo-100/80 rounded-xl space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="p-3.5 sm:p-4 bg-indigo-50/40 border border-indigo-100/80 rounded-xl space-y-2.5 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-bold text-indigo-900">Problem Solving Goal</span>
-              <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-indigo-700 bg-indigo-100/80 px-2.5 py-0.5 rounded-full shrink-0">
                 {metrics.problemsSolvedToday} / {metrics.dailyProblemGoal} solved
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all duration-500 ${
+                className={`h-2.5 rounded-full transition-all duration-500 ${
                   metrics.dailyProblemGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-indigo-600'
                 }`}
-                style={{ width: `${metrics.dailyProblemGoalProgress}%` }}
+                style={{ width: `${Math.min(100, metrics.dailyProblemGoalProgress)}%` }}
               />
             </div>
-            <p className="text-2xs text-gray-500">
+            <p className="text-xs text-gray-500">
               {metrics.dailyProblemGoalProgress >= 100
                 ? '✓ Daily solving target reached!'
                 : `${Math.max(0, metrics.dailyProblemGoal - metrics.problemsSolvedToday)} more problem${Math.max(0, metrics.dailyProblemGoal - metrics.problemsSolvedToday) === 1 ? '' : 's'} needed today`}
@@ -231,22 +274,22 @@ export default function Dashboard() {
           </div>
 
           {/* Goal 2: Revisions Completed Per Day */}
-          <div className="p-3 bg-emerald-50/40 border border-emerald-100/80 rounded-xl space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="p-3.5 sm:p-4 bg-emerald-50/40 border border-emerald-100/80 rounded-xl space-y-2.5 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-bold text-emerald-900">Revision Practice Goal</span>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full shrink-0">
                 {metrics.revisionsCompletedToday} / {metrics.dailyRevisionGoal} completed
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all duration-500 ${
+                className={`h-2.5 rounded-full transition-all duration-500 ${
                   metrics.dailyRevisionGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-600'
                 }`}
-                style={{ width: `${metrics.dailyRevisionGoalProgress}%` }}
+                style={{ width: `${Math.min(100, metrics.dailyRevisionGoalProgress)}%` }}
               />
             </div>
-            <p className="text-2xs text-gray-500">
+            <p className="text-xs text-gray-500">
               {metrics.dailyRevisionGoalProgress >= 100
                 ? '✓ Daily revision target reached!'
                 : `${Math.max(0, metrics.dailyRevisionGoal - metrics.revisionsCompletedToday)} more revision${Math.max(0, metrics.dailyRevisionGoal - metrics.revisionsCompletedToday) === 1 ? '' : 's'} needed today`}
@@ -286,26 +329,26 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 pt-3.5">
-          <div className="p-3 bg-red-50/70 border border-red-100 rounded-lg">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-3.5">
+          <div className="p-3 bg-red-50/70 border border-red-100 rounded-lg min-w-0">
             <p className="text-xs font-semibold text-red-700">Overdue</p>
-            <p className="text-xl font-bold text-red-900 mt-0.5">{metrics.overdueCount}</p>
+            <p className="text-xl font-bold text-red-900 mt-0.5 truncate">{metrics.overdueCount}</p>
           </div>
-          <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-lg">
+          <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-lg min-w-0">
             <p className="text-xs font-semibold text-amber-700">Due Today</p>
-            <p className="text-xl font-bold text-amber-900 mt-0.5">{metrics.dueTodayCount}</p>
+            <p className="text-xl font-bold text-amber-900 mt-0.5 truncate">{metrics.dueTodayCount}</p>
           </div>
-          <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-lg">
+          <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-lg min-w-0">
             <p className="text-xs font-semibold text-indigo-700">Due This Week</p>
-            <p className="text-xl font-bold text-indigo-900 mt-0.5">{metrics.dueThisWeekCount}</p>
+            <p className="text-xl font-bold text-indigo-900 mt-0.5 truncate">{metrics.dueThisWeekCount}</p>
           </div>
-          <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-lg">
+          <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-lg min-w-0">
             <p className="text-xs font-semibold text-emerald-700">Total Revisions</p>
-            <p className="text-xl font-bold text-emerald-900 mt-0.5">{metrics.totalRevisionsCount}</p>
+            <p className="text-xl font-bold text-emerald-900 mt-0.5 truncate">{metrics.totalRevisionsCount}</p>
           </div>
-          <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-lg">
-            <p className="text-xs font-semibold text-purple-700">Revision Success Rate</p>
-            <p className="text-xl font-bold text-purple-900 mt-0.5">
+          <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-lg min-w-0 col-span-2 sm:col-span-1">
+            <p className="text-xs font-semibold text-purple-700">Success Rate</p>
+            <p className="text-xl font-bold text-purple-900 mt-0.5 truncate">
               {metrics.totalRevisionsCount > 0 ? `${metrics.revisionSuccessRate}%` : '—'}
             </p>
           </div>
@@ -313,9 +356,9 @@ export default function Dashboard() {
       </div>
 
       {/* Activity Chart & Difficulty Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 min-w-0">
         {/* Daily Activity Chart (7 Days vs 30 Days Toggle) */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 min-w-0">
           <CardHeader
             title="Daily Activity"
             subtitle={`Problems solved and revisions completed (${activityWindow === '7d' ? 'Last 7 days' : 'Last 30 days'})`}
@@ -411,9 +454,9 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Row: Recent Problems & Top Topics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 min-w-0">
         {/* Recent Problems */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 min-w-0">
           <CardHeader
             title="Recent Problems"
             subtitle="Latest problems logged into your vault"
