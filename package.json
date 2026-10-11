@@ -1,0 +1,41 @@
+{
+  "name": "dsa-record",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "db:migrate": "node db/migrate.js",
+    "server": "node server/server.js",
+    "test": "node server/test-integration.js",
+    "test:all": "node server/test-scheduler.js && node server/test-analytics.js && node server/test-calendar-goals.js && node server/test-integration.js && node server/test-security-prerelease.js"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "date-fns": "^4.4.0",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.55.0",
+    "pg": "^8.23.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4",
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "vite": "^8.3.0"
+  }
+}
