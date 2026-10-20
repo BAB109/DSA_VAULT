@@ -103,8 +103,8 @@ JOIN (VALUES
   (6,14,  1,'Python: List Comprehensions & Generators','Comprehensions, generator expressions, yield, itertools','Write Pythonic code using comprehensions and lazy sequences',45),
   (6,15,  2,'Java: JVM, JIT & Garbage Collection','JVM internals, bytecode, JIT compilation, GC algorithms','Understand JVM lifecycle and tune GC for performance',60),
   (6,16,  3,'C++: RAII, Smart Pointers & Move Semantics','RAII pattern, unique_ptr, shared_ptr, move vs copy semantics','Manage resources safely using RAII and smart pointers',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=1 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=1
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 2: Data Structures and Algorithms ──────────────────────────────────
@@ -148,8 +148,8 @@ JOIN (VALUES
   (7,37,2,'Huffman Coding & Optimal Substructure','Frequency-based encoding, priority queue usage','Implement Huffman coding, understand optimal substructure',60),
   (8,38,1,'Tries & Suffix Structures','Trie insert/search/delete, prefix matching, autocomplete','Build a trie for efficient prefix and string operations',60),
   (8,39,2,'Segment Trees & Binary Indexed Trees','Range query, point update, lazy propagation','Implement segment tree with lazy propagation for range updates',75)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=2 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=2
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 3: Object-Oriented Programming ─────────────────────────────────────
@@ -175,8 +175,8 @@ JOIN (VALUES
   (3,45,2,'Structural Patterns: Adapter, Decorator, Composite','Pattern intent, UML, wrapping objects','Apply structural patterns to extend functionality without modification',75),
   (3,46,3,'Behavioral Patterns: Observer, Strategy, Command','Event-driven design, strategy selection, command queue','Use behavioral patterns to decouple behavior from context',75),
   (4,47,1,'UML Class & Sequence Diagrams','Class relationships, sequence message flows','Read and draw UML class and sequence diagrams for design review',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=3 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=3
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 4: Database Management Systems and SQL ─────────────────────────────
@@ -209,8 +209,8 @@ JOIN (VALUES
   (5,58,2,'Query Execution Plans & Optimization','EXPLAIN/ANALYZE, query planner, index hints, covering indexes','Read query plans and rewrite slow queries',60),
   (6,59,1,'NoSQL Types: Document, Key-Value, Column, Graph','MongoDB, Redis, Cassandra, Neo4j use cases','Select the appropriate NoSQL database for a given workload',60),
   (6,60,2,'CAP Theorem & Eventual Consistency','Consistency vs availability trade-off, BASE vs ACID','Reason about distributed data consistency guarantees',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=4 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=4
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 5: Operating Systems ───────────────────────────────────────────────
@@ -243,8 +243,8 @@ JOIN (VALUES
   (5,71,2,'Deadlock: Detection, Prevention & Recovery','Necessary conditions, resource allocation graph, banker''s algorithm','Apply deadlock prevention and detection strategies',60),
   (6,72,1,'Hypervisors & Virtual Machines','Type 1 vs Type 2 hypervisors, hardware virtualization, para-virtualization','Explain how VMs provide isolation with near-native performance',60),
   (6,73,2,'Containers & Namespaces','Linux namespaces, cgroups, Docker internals, container vs VM','Explain container isolation mechanisms and compare with VMs',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=5 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=5
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 6: Computer Networks ───────────────────────────────────────────────
@@ -276,8 +276,8 @@ JOIN (VALUES
   (4,83,2,'NAT, Firewalls & Load Balancers','SNAT, DNAT, stateful firewall, L4/L7 load balancing','Design a network topology with NAT and firewall rules',60),
   (5,84,1,'TLS/SSL & PKI','TLS handshake, certificates, CA chain, forward secrecy','Explain TLS and how certificate chains establish trust',60),
   (5,85,2,'Common Network Attacks & Mitigations','DDoS, MITM, DNS spoofing, ARP poisoning','Identify attack vectors and apply appropriate countermeasures',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=6 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=6
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 7: Software Engineering and Developer Tools ────────────────────────
@@ -307,8 +307,8 @@ JOIN (VALUES
   (4,93,2,'Infrastructure as Code & GitOps','Terraform basics, Helm charts, GitOps workflow with ArgoCD','Manage infrastructure using declarative configuration',60),
   (5,94,1,'Code Reviews & Static Analysis','Review guidelines, linters, SAST tools, technical debt','Conduct productive code reviews and integrate static analysis',45),
   (5,95,2,'Documentation: README, ADRs & API Docs','Good README structure, Architecture Decision Records, OpenAPI','Write documentation that reduces onboarding time',45)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=7 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=7
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 8: Backend Development and API Engineering ─────────────────────────
@@ -341,8 +341,8 @@ JOIN (VALUES
   (5,106,2,'Event Sourcing & CQRS','Event log as source of truth, read models, projections','Implement a simple CQRS system with event sourcing',75),
   (6,107,1,'Database Connection Pooling & Backpressure','Pool sizing, queue depth, circuit breaker pattern','Configure connection pooling and implement backpressure',60),
   (6,108,2,'Rate Limiting & Throttling','Token bucket, leaky bucket, sliding window counter','Implement rate limiting at the API gateway level',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=8 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=8
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 9: Low-Level Design ────────────────────────────────────────────────
@@ -369,8 +369,8 @@ JOIN (VALUES
   (2,115,5,'Design an Elevator System','Elevator, controller, request scheduling algorithms','Implement multi-elevator scheduling with different strategies',90),
   (3,116,1,'Thread-Safe Singleton & Object Pools','Double-checked locking, volatile, object pool pattern','Implement thread-safe patterns correctly in Java/Python',60),
   (3,117,2,'Producer-Consumer with Bounded Buffer','BlockingQueue, wait/notify, semaphore-based implementation','Implement producer-consumer without race conditions',75)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=9 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=9
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 10: High-Level Design and Distributed Systems ──────────────────────
@@ -402,8 +402,8 @@ JOIN (VALUES
   (4,128,3,'Design a Distributed Key-Value Store','Consistent hashing, replication, read/write quorum, gossip protocol','Design a fault-tolerant distributed KV store',90),
   (4,129,4,'Design a Video Streaming Platform','CDN, adaptive bitrate streaming, video encoding pipeline','Design a YouTube-scale video streaming system',90),
   (4,130,5,'Design a Ride-Sharing Service','Matching algorithm, real-time location, surge pricing','Design a ride-sharing backend with driver-rider matching',90)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=10 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=10
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 11: Security, Deployment and Cloud Fundamentals ────────────────────
@@ -431,8 +431,8 @@ JOIN (VALUES
   (3,137,2,'Kubernetes: Pods, Services & Deployments','Pod lifecycle, Services, Deployments, ReplicaSets, ConfigMaps','Deploy a multi-tier application to Kubernetes',75),
   (4,138,1,'Blue-Green & Canary Deployments','Zero-downtime deploys, traffic splitting, rollback strategies','Design a deployment pipeline with gradual traffic shifting',60),
   (4,139,2,'SLIs, SLOs & Error Budgets','SLI definition, SLO targets, error budget policy, toil reduction','Define SLOs for a service and use error budgets for reliability',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=11 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=11
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 12: AI/ML and AI Engineering ───────────────────────────────────────
@@ -461,8 +461,8 @@ JOIN (VALUES
   (3,147,2,'Prompt Engineering & RAG','Zero/few-shot prompting, chain-of-thought, retrieval-augmented generation','Design a RAG pipeline for document Q&A',75),
   (4,148,1,'ML Pipelines & Feature Stores','Data ingestion, feature engineering, training pipelines, Feast','Design an end-to-end ML training pipeline',60),
   (4,149,2,'Model Serving, Monitoring & Drift Detection','Online inference, batch inference, data drift, model performance decay','Monitor a production model and detect distribution shift',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=12 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=12
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 13: Computer Architecture and Compiler Fundamentals ────────────────
@@ -489,8 +489,8 @@ JOIN (VALUES
   (3,155,2,'Semantic Analysis & Intermediate Representation','Symbol tables, type checking, three-address code, SSA form','Generate IR from a simple AST',60),
   (4,156,1,'Binary, Hex & Two''s Complement Arithmetic','Number base conversions, overflow, signed/unsigned arithmetic','Perform arithmetic in binary and detect overflow',45),
   (4,157,2,'Boolean Algebra & Logic Gates','Boolean laws, logic gate circuits, Karnaugh maps, combinational circuits','Simplify Boolean expressions using K-maps',60)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=13 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=13
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Module 14: Interview Preparation and Project Defense ──────────────────────
@@ -518,8 +518,8 @@ JOIN (VALUES
   (3,164,2,'Handling Deep Technical Questions on Your Project','Anticipating architecture questions, tradeoffs, alternative designs','Defend design decisions under pressure with confidence',60),
   (4,165,1,'Evaluating Job Offers: Comp, Equity & Culture','TC calculation, vesting schedules, culture fit evaluation','Compare two offers using a structured framework',45),
   (4,166,2,'Salary Negotiation Tactics','Anchoring, competing offers, negotiating non-salary benefits','Negotiate a higher offer without risking rescission',45)
-) AS t(ms,gs,ss,title,descr,obj,mins)
-WHERE m.seq=14 AND sec.seq=t.ms
+) AS t(ms,gs,ss,title,descr,obj,mins) ON sec.seq=t.ms
+WHERE m.seq=14
 ON CONFLICT (global_seq) DO NOTHING;
 
 -- ── Checklist Items ───────────────────────────────────────────────────────────
