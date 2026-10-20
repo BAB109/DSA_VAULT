@@ -8,6 +8,8 @@ import { logger, requestLogger } from './logger.js';
 import { pool } from '../db/pool.js';
 import authRoutes from './routes/auth.js';
 import problemsRoutes from './routes/problems.js';
+import csFundamentalsRoutes from './routes/csFundamentals.js';
+import csAssessmentsRoutes from './routes/csAssessments.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +87,8 @@ app.get('/api/ready', async (req, res) => {
 // ── Mount API Routes ──────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api', problemsRoutes);
+app.use('/api/cs-fundamentals', csFundamentalsRoutes);
+app.use('/api/cs-assessments', csAssessmentsRoutes);
 
 // ── Serve Frontend in Single-Tier Deployment ──────────────────────────────────
 if (fs.existsSync(distPath)) {

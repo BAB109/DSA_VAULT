@@ -14,6 +14,11 @@ import EditProblem from './pages/EditProblem';
 import RevisionCenter from './pages/RevisionCenter';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import CSFundamentals from './pages/CSFundamentals';
+import CSFundamentalsTopic from './pages/CSFundamentalsTopic';
+import CSFundamentalsDaily from './pages/CSFundamentalsDaily';
+import CSFundamentalsAssessment from './pages/CSFundamentalsAssessment';
+
 
 // ─── Layout wrapper ────────────────────────────────────────────────────────────
 function Layout({ children }) {
@@ -117,6 +122,22 @@ export default function App() {
           <Route
             path="/settings"
             element={<RequireAuth><Layout><Settings /></Layout></RequireAuth>}
+          />
+          <Route
+            path="/cs-fundamentals"
+            element={<RequireAuth><Layout><CSFundamentals /></Layout></RequireAuth>}
+          />
+          <Route
+            path="/cs-fundamentals/topics/:id"
+            element={<RequireAuth><Layout><CSFundamentalsTopic /></Layout></RequireAuth>}
+          />
+          <Route
+            path="/cs-fundamentals/daily"
+            element={<RequireAuth><Layout><CSFundamentalsDaily /></Layout></RequireAuth>}
+          />
+          <Route
+            path="/cs-fundamentals/topics/:id/assessment"
+            element={<RequireAuth><Layout><CSFundamentalsAssessment /></Layout></RequireAuth>}
           />
 
           {/* ── 404 ── */}

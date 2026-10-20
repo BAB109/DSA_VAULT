@@ -1,0 +1,108 @@
+/**
+ * CS Fundamentals Learning Path API service.
+ * Follows the same conventions as problemService.js.
+ */
+import { apiClient } from './apiClient.js';
+
+export const csFundamentalsService = {
+  /** Full curriculum with user progress overlaid */
+  async getCurriculum() {
+    return apiClient('/cs-fundamentals/curriculum');
+  },
+
+  /** Active (current unlocked) topic */
+  async getActiveTopic() {
+    return apiClient('/cs-fundamentals/active-topic');
+  },
+
+  /** Single topic detail (includes checklist, prev/next nav) */
+  async getTopic(id) {
+    return apiClient(`/cs-fundamentals/topics/${id}`);
+  },
+
+  /** Toggle a checklist item */
+  async toggleChecklistItem(topicId, itemId, checked) {
+    return apiClient(`/cs-fundamentals/topics/${topicId}/checklist/${itemId}`, {
+      method: 'POST',
+      body: JSON.stringify({ checked }),
+    });
+  },
+
+  /** Mark the active topic as complete */
+  async completeTopic(topicId) {
+    return apiClient(`/cs-fundamentals/topics/${topicId}/complete`, {
+      method: 'POST',
+    });
+  },
+
+  /** Dashboard stats */
+  async getStats() {
+    return apiClient('/cs-fundamentals/stats');
+  },
+
+  // ── Daily Learning Experience ──────────────────────────────────────────────
+
+  /** "Today's Learning" panel — active topic, goals, streak, overall stats */
+  async getDaily() {
+    return apiClient('/cs-fundamentals/daily');
+  },
+
+  /** Study history grouped by day */
+  async getHistory() {
+    return apiClient('/cs-fundamentals/history');
+  },
+
+  /** CS-only learning streak (independent from DSA streak) */
+  async getLearningStreak() {
+    return apiClient('/cs-fundamentals/learning-streak');
+  },
+
+  /** Record a manual study activity ('started' or 'checklist_updated') */
+  async logStudyActivity(topicId, activity) {
+    return apiClient('/cs-fundamentals/study-log', {
+      method: 'POST',
+      body: JSON.stringify({ topic_id: topicId, activity }),
+    });
+  },
+
+  /** Retrieve CS-specific user settings */
+  async getCsSettings() {
+    return apiClient('/cs-fundamentals/cs-settings');
+  },
+
+  /** Update CS-specific user settings */
+  async updateCsSettings(data) {
+    return apiClient('/cs-fundamentals/cs-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // ── Knowledge Assessments ──────────────────────────────────────────────────
+
+  /** Assessment questions + config + past attempt summaries for a topic */
+  async getAssessment(topicId) {
+    return apiClient(`/cs-assessments/topics/${topicId}/assessment`);
+  },
+
+  /** Submit answers; server calculates score and returns results + explanations */
+  async submitAssessment(topicId, answers) {
+    return apiClient(`/cs-assessments/topics/${topicId}/assessment`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+  },
+
+  /** Full attempt history with per-question answers and explanations */
+  async getAssessmentAttempts(topicId) {
+    return apiClient(`/cs-assessments/topics/${topicId}/assessment/attempts`);
+  },
+
+  /** Quick pass-status check (has user passed mandatory assessment?) */
+  async getAssessmentPassStatus(topicId) {
+    return apiClient(`/cs-assessments/topics/${topicId}/pass-status`);
+  },
+};
+
+export default csFundamentalsService;
+

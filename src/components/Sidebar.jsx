@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PlusCircle, BookOpen, RotateCcw,
   BarChart2, Settings, BookMarked, Menu, X, LogOut,
+  GraduationCap,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +13,7 @@ const navItems = [
   { to: '/library', icon: BookOpen, label: 'Problem Library' },
   { to: '/revision', icon: RotateCcw, label: 'Revision Center' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
+  { to: '/cs-fundamentals', icon: GraduationCap, label: 'CS Fundamentals' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
