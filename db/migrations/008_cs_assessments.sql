@@ -532,24 +532,24 @@ FROM cs_topics WHERE global_seq = 48 ON CONFLICT (topic_id, seq) DO NOTHING;
 -- Make first 10 topics have assessments configured (optional by default)
 -- Topics with mandatory assessments: 1,2,3,5,7,8,9,17,23,32,40,48
 INSERT INTO cs_topic_assessment_config (topic_id, is_mandatory, passing_score, question_count)
-SELECT t.id, cfg.mandatory, cfg.score, cfg.qcount
+SELECT t.id, cfg.mandatory, cfg.score, cfg.qcount::integer
 FROM cs_topics t
 JOIN (VALUES
-  (1,  FALSE, 70, NULL),
-  (2,  FALSE, 70, NULL),
-  (3,  FALSE, 70, NULL),
-  (4,  FALSE, 70, NULL),
-  (5,  FALSE, 70, NULL),
-  (6,  FALSE, 70, NULL),
-  (7,  FALSE, 70, NULL),
-  (8,  FALSE, 70, NULL),
-  (9,  FALSE, 70, NULL),
-  (10, FALSE, 70, NULL),
-  (17, FALSE, 70, NULL),
-  (19, FALSE, 70, NULL),
-  (23, FALSE, 70, NULL),
-  (32, FALSE, 70, NULL),
-  (40, FALSE, 70, NULL),
-  (48, FALSE, 70, NULL)
+  (1,  FALSE, 70, NULL::integer),
+  (2,  FALSE, 70, NULL::integer),
+  (3,  FALSE, 70, NULL::integer),
+  (4,  FALSE, 70, NULL::integer),
+  (5,  FALSE, 70, NULL::integer),
+  (6,  FALSE, 70, NULL::integer),
+  (7,  FALSE, 70, NULL::integer),
+  (8,  FALSE, 70, NULL::integer),
+  (9,  FALSE, 70, NULL::integer),
+  (10, FALSE, 70, NULL::integer),
+  (17, FALSE, 70, NULL::integer),
+  (19, FALSE, 70, NULL::integer),
+  (23, FALSE, 70, NULL::integer),
+  (32, FALSE, 70, NULL::integer),
+  (40, FALSE, 70, NULL::integer),
+  (48, FALSE, 70, NULL::integer)
 ) AS cfg(gs, mandatory, score, qcount) ON t.global_seq = cfg.gs
 ON CONFLICT (topic_id) DO NOTHING;
