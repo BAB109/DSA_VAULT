@@ -84,7 +84,7 @@ SELECT m.id, s.seq, s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1, 1,  1,'Variables, Data Types & Type Casting','Primitive and composite data types, casting rules, type coercion','Understand static vs dynamic typing, implicit/explicit casting, overflow/underflow',45),
@@ -103,7 +103,7 @@ JOIN (VALUES
   (6,14,  1,'Python: List Comprehensions & Generators','Comprehensions, generator expressions, yield, itertools','Write Pythonic code using comprehensions and lazy sequences',45),
   (6,15,  2,'Java: JVM, JIT & Garbage Collection','JVM internals, bytecode, JIT compilation, GC algorithms','Understand JVM lifecycle and tune GC for performance',60),
   (6,16,  3,'C++: RAII, Smart Pointers & Move Semantics','RAII pattern, unique_ptr, shared_ptr, move vs copy semantics','Manage resources safely using RAII and smart pointers',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=1 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -122,7 +122,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,17,1,'Two Pointers & Sliding Window','Fixed/variable window patterns, two-pointer convergence','Solve subarray/substring problems in O(n)',60),
@@ -148,7 +148,7 @@ JOIN (VALUES
   (7,37,2,'Huffman Coding & Optimal Substructure','Frequency-based encoding, priority queue usage','Implement Huffman coding, understand optimal substructure',60),
   (8,38,1,'Tries & Suffix Structures','Trie insert/search/delete, prefix matching, autocomplete','Build a trie for efficient prefix and string operations',60),
   (8,39,2,'Segment Trees & Binary Indexed Trees','Range query, point update, lazy propagation','Implement segment tree with lazy propagation for range updates',75)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=2 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -164,7 +164,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,40,1,'Classes, Objects, Encapsulation & Abstraction','Class design, access modifiers, abstract classes, interfaces','Design cohesive classes with clear boundaries',60),
@@ -175,7 +175,7 @@ JOIN (VALUES
   (3,45,2,'Structural Patterns: Adapter, Decorator, Composite','Pattern intent, UML, wrapping objects','Apply structural patterns to extend functionality without modification',75),
   (3,46,3,'Behavioral Patterns: Observer, Strategy, Command','Event-driven design, strategy selection, command queue','Use behavioral patterns to decouple behavior from context',75),
   (4,47,1,'UML Class & Sequence Diagrams','Class relationships, sequence message flows','Read and draw UML class and sequence diagrams for design review',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=3 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -193,7 +193,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,48,1,'SQL CRUD: SELECT, INSERT, UPDATE, DELETE','DML operations, WHERE clauses, ORDER BY, LIMIT','Write correct and efficient DML statements',45),
@@ -209,7 +209,7 @@ JOIN (VALUES
   (5,58,2,'Query Execution Plans & Optimization','EXPLAIN/ANALYZE, query planner, index hints, covering indexes','Read query plans and rewrite slow queries',60),
   (6,59,1,'NoSQL Types: Document, Key-Value, Column, Graph','MongoDB, Redis, Cassandra, Neo4j use cases','Select the appropriate NoSQL database for a given workload',60),
   (6,60,2,'CAP Theorem & Eventual Consistency','Consistency vs availability trade-off, BASE vs ACID','Reason about distributed data consistency guarantees',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=4 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -227,7 +227,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,61,1,'Process Lifecycle & PCB','Process states, PCB fields, fork/exec model','Trace the lifecycle of a process from creation to termination',60),
@@ -243,7 +243,7 @@ JOIN (VALUES
   (5,71,2,'Deadlock: Detection, Prevention & Recovery','Necessary conditions, resource allocation graph, banker''s algorithm','Apply deadlock prevention and detection strategies',60),
   (6,72,1,'Hypervisors & Virtual Machines','Type 1 vs Type 2 hypervisors, hardware virtualization, para-virtualization','Explain how VMs provide isolation with near-native performance',60),
   (6,73,2,'Containers & Namespaces','Linux namespaces, cgroups, Docker internals, container vs VM','Explain container isolation mechanisms and compare with VMs',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=5 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -261,7 +261,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,74,1,'OSI 7-Layer Model','Layer functions, PDUs, encapsulation/decapsulation','Map real protocols to OSI layers',45),
@@ -276,7 +276,7 @@ JOIN (VALUES
   (4,83,2,'NAT, Firewalls & Load Balancers','SNAT, DNAT, stateful firewall, L4/L7 load balancing','Design a network topology with NAT and firewall rules',60),
   (5,84,1,'TLS/SSL & PKI','TLS handshake, certificates, CA chain, forward secrecy','Explain TLS and how certificate chains establish trust',60),
   (5,85,2,'Common Network Attacks & Mitigations','DDoS, MITM, DNS spoofing, ARP poisoning','Identify attack vectors and apply appropriate countermeasures',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=6 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -294,7 +294,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,86,1,'Agile, Scrum & Kanban','Sprint ceremonies, backlog grooming, WIP limits, velocity','Participate in an Agile team and understand sprint planning',60),
@@ -307,7 +307,7 @@ JOIN (VALUES
   (4,93,2,'Infrastructure as Code & GitOps','Terraform basics, Helm charts, GitOps workflow with ArgoCD','Manage infrastructure using declarative configuration',60),
   (5,94,1,'Code Reviews & Static Analysis','Review guidelines, linters, SAST tools, technical debt','Conduct productive code reviews and integrate static analysis',45),
   (5,95,2,'Documentation: README, ADRs & API Docs','Good README structure, Architecture Decision Records, OpenAPI','Write documentation that reduces onboarding time',45)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=7 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -325,7 +325,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1, 96,1,'REST Principles & HTTP Semantics','Statelessness, uniform interface, resource naming, status codes','Design a RESTful API that follows HTTP semantics',60),
@@ -341,7 +341,7 @@ JOIN (VALUES
   (5,106,2,'Event Sourcing & CQRS','Event log as source of truth, read models, projections','Implement a simple CQRS system with event sourcing',75),
   (6,107,1,'Database Connection Pooling & Backpressure','Pool sizing, queue depth, circuit breaker pattern','Configure connection pooling and implement backpressure',60),
   (6,108,2,'Rate Limiting & Throttling','Token bucket, leaky bucket, sliding window counter','Implement rate limiting at the API gateway level',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=8 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -357,7 +357,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,109,1,'LLD Process: Requirements to Class Diagram','Identifying actors, entities, relationships, responsibilities','Convert a problem statement into a class diagram in 10 minutes',60),
@@ -369,7 +369,7 @@ JOIN (VALUES
   (2,115,5,'Design an Elevator System','Elevator, controller, request scheduling algorithms','Implement multi-elevator scheduling with different strategies',90),
   (3,116,1,'Thread-Safe Singleton & Object Pools','Double-checked locking, volatile, object pool pattern','Implement thread-safe patterns correctly in Java/Python',60),
   (3,117,2,'Producer-Consumer with Bounded Buffer','BlockingQueue, wait/notify, semaphore-based implementation','Implement producer-consumer without race conditions',75)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=9 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -386,7 +386,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,118,1,'HLD Interview Framework & Back-of-Envelope Math','Capacity estimation, QPS, storage, bandwidth calculations','Perform quick capacity estimates for any system',60),
@@ -402,7 +402,7 @@ JOIN (VALUES
   (4,128,3,'Design a Distributed Key-Value Store','Consistent hashing, replication, read/write quorum, gossip protocol','Design a fault-tolerant distributed KV store',90),
   (4,129,4,'Design a Video Streaming Platform','CDN, adaptive bitrate streaming, video encoding pipeline','Design a YouTube-scale video streaming system',90),
   (4,130,5,'Design a Ride-Sharing Service','Matching algorithm, real-time location, surge pricing','Design a ride-sharing backend with driver-rider matching',90)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=10 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -419,7 +419,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,131,1,'OWASP Top 10 Vulnerabilities','Injection, XSS, IDOR, SSRF, broken auth, security misconfiguration','Identify and mitigate all OWASP Top 10 vulnerabilities',75),
@@ -431,7 +431,7 @@ JOIN (VALUES
   (3,137,2,'Kubernetes: Pods, Services & Deployments','Pod lifecycle, Services, Deployments, ReplicaSets, ConfigMaps','Deploy a multi-tier application to Kubernetes',75),
   (4,138,1,'Blue-Green & Canary Deployments','Zero-downtime deploys, traffic splitting, rollback strategies','Design a deployment pipeline with gradual traffic shifting',60),
   (4,139,2,'SLIs, SLOs & Error Budgets','SLI definition, SLO targets, error budget policy, toil reduction','Define SLOs for a service and use error budgets for reliability',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=11 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -448,7 +448,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,140,1,'Supervised, Unsupervised & Reinforcement Learning','Classification, regression, clustering, RL reward signals','Identify the appropriate ML paradigm for a problem',60),
@@ -461,7 +461,7 @@ JOIN (VALUES
   (3,147,2,'Prompt Engineering & RAG','Zero/few-shot prompting, chain-of-thought, retrieval-augmented generation','Design a RAG pipeline for document Q&A',75),
   (4,148,1,'ML Pipelines & Feature Stores','Data ingestion, feature engineering, training pipelines, Feast','Design an end-to-end ML training pipeline',60),
   (4,149,2,'Model Serving, Monitoring & Drift Detection','Online inference, batch inference, data drift, model performance decay','Monitor a production model and detect distribution shift',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=12 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -478,7 +478,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,150,1,'Von Neumann Architecture & ISA','CPU components, fetch-decode-execute cycle, RISC vs CISC','Trace a program''s execution through the CPU pipeline',60),
@@ -489,7 +489,7 @@ JOIN (VALUES
   (3,155,2,'Semantic Analysis & Intermediate Representation','Symbol tables, type checking, three-address code, SSA form','Generate IR from a simple AST',60),
   (4,156,1,'Binary, Hex & Two''s Complement Arithmetic','Number base conversions, overflow, signed/unsigned arithmetic','Perform arithmetic in binary and detect overflow',45),
   (4,157,2,'Boolean Algebra & Logic Gates','Boolean laws, logic gate circuits, Karnaugh maps, combinational circuits','Simplify Boolean expressions using K-maps',60)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=13 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
@@ -506,7 +506,7 @@ SELECT m.id,s.seq,s.title FROM cs_modules m,
 ON CONFLICT (module_id,seq) DO NOTHING;
 
 INSERT INTO cs_topics (module_id,section_id,global_seq,section_seq,title,description,objectives,est_minutes)
-SELECT m.id,sec.id,t.gs,t.ss,t.title,t.desc,t.obj,t.mins
+SELECT m.id,sec.id,t.gs,t.ss,t.title,t.descr,t.obj,t.mins
 FROM cs_modules m JOIN cs_sections sec ON sec.module_id=m.id
 JOIN (VALUES
   (1,158,1,'Coding Interview Strategy & Time Management','Clarify → plan → code → test cycle, managing 45 minutes','Complete a medium LeetCode problem in 35 minutes with explanation',60),
@@ -518,7 +518,7 @@ JOIN (VALUES
   (3,164,2,'Handling Deep Technical Questions on Your Project','Anticipating architecture questions, tradeoffs, alternative designs','Defend design decisions under pressure with confidence',60),
   (4,165,1,'Evaluating Job Offers: Comp, Equity & Culture','TC calculation, vesting schedules, culture fit evaluation','Compare two offers using a structured framework',45),
   (4,166,2,'Salary Negotiation Tactics','Anchoring, competing offers, negotiating non-salary benefits','Negotiate a higher offer without risking rescission',45)
-) AS t(ms,gs,ss,title,desc,obj,mins)
+) AS t(ms,gs,ss,title,descr,obj,mins)
 WHERE m.seq=14 AND sec.seq=t.ms
 ON CONFLICT (global_seq) DO NOTHING;
 
