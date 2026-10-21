@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TimerProvider } from './context/TimerContext';
+import FloatingQuickWidget from './components/widgets/FloatingQuickWidget';
 import { Sidebar } from './components/Sidebar';
 import { Spinner } from './components/States';
 
@@ -18,6 +20,7 @@ import CSFundamentals from './pages/CSFundamentals';
 import CSFundamentalsTopic from './pages/CSFundamentalsTopic';
 import CSFundamentalsDaily from './pages/CSFundamentalsDaily';
 import CSFundamentalsAssessment from './pages/CSFundamentalsAssessment';
+import TaskWidgetPage from './pages/TaskWidgetPage';
 
 
 // ─── Layout wrapper ────────────────────────────────────────────────────────────
@@ -30,6 +33,7 @@ function Layout({ children }) {
           {children}
         </div>
       </main>
+      <FloatingQuickWidget />
     </div>
   );
 }
@@ -79,6 +83,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <TimerProvider>
         <Routes>
           {/* ── Public auth routes ── */}
           <Route
@@ -140,6 +145,11 @@ export default function App() {
             element={<RequireAuth><Layout><CSFundamentalsAssessment /></Layout></RequireAuth>}
           />
 
+          <Route
+            path="/widget/tasks"
+            element={<RequireAuth><TaskWidgetPage /></RequireAuth>}
+          />
+
           {/* ── 404 ── */}
           <Route
             path="*"
@@ -158,6 +168,7 @@ export default function App() {
             }
           />
         </Routes>
+        </TimerProvider>
       </AuthProvider>
     </BrowserRouter>
   );

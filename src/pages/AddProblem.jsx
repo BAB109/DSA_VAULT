@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format, addDays } from 'date-fns';
 import { ExternalLink } from 'lucide-react';
 import { problemService } from '../services/problemService';
@@ -234,6 +234,15 @@ export default function AddProblem() {
   const [saved, setSaved] = useState(false);
   const [topicSuggestions, setTopicSuggestions] = useState(TOPIC_SUGGESTIONS);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const timeFromQuery = params.get('timeTaken') || location.state?.timeTaken;
+    if (timeFromQuery) {
+      setForm((f) => ({ ...f, timeTaken: String(timeFromQuery) }));
+    }
+  }, [location.search, location.state]);
 
   useEffect(() => {
     problemService.getTopics()

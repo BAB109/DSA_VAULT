@@ -1,0 +1,58 @@
+{
+  "name": "DSA Vault — Learning Journal & Daily Tasks",
+  "short_name": "DSA Tasks",
+  "description": "Daily DSA problem tracking, spaced repetition, interview timers, and task checklist widget.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/image.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's Tasks",
+      "short_name": "Tasks",
+      "description": "View and manage today's DSA tasks",
+      "url": "/?widget=tasks",
+      "icons": [{ "src": "/image.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Log Problem",
+      "short_name": "Log",
+      "description": "Record a solved DSA problem",
+      "url": "/add",
+      "icons": [{ "src": "/image.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Revision Center",
+      "short_name": "Revision",
+      "description": "Spaced repetition practice",
+      "url": "/revision",
+      "icons": [{ "src": "/image.png", "sizes": "192x192" }]
+    }
+  ],
+  "widgets": [
+    {
+      "name": "DSA Daily Tasks",
+      "description": "Today's DSA practice checklist and streak widget",
+      "tag": "dsa-tasks-widget",
+      "template": "dsa-tasks-template",
+      "ms_ac_template": "/widget/tasks",
+      "data": "/api/health",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "/image.png",
+          "sizes": "512x512",
+          "label": "Daily Tasks Widget"
+        }
+      ]
+    }
+  ]
+}
