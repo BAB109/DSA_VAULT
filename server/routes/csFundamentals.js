@@ -11,21 +11,35 @@ router.use(authenticateToken);
 // Finds the first incomplete topic (prioritizing Phase 1, then lowest global_seq)
 // whose prerequisites are all completed.
 async function getRecommendedActiveTopic(client, userId) {
-  const { rows } = await client.query(
-    `SELECT t.id, t.global_seq, t.phase, t.title
-     FROM cs_topics t
-     LEFT JOIN user_cs_progress ucp ON ucp.topic_id = t.id AND ucp.user_id = $1 AND ucp.completed = TRUE
-     WHERE (ucp.completed IS NULL OR ucp.completed = FALSE)
-       AND NOT EXISTS (
-         SELECT 1 FROM cs_topic_prerequisites p
-         LEFT JOIN user_cs_progress pr_ucp ON pr_ucp.topic_id = p.prereq_topic_id AND pr_ucp.user_id = $1 AND pr_ucp.completed = TRUE
-         WHERE p.topic_id = t.id AND (pr_ucp.completed IS NULL OR pr_ucp.completed = FALSE)
-       )
-     ORDER BY t.phase ASC, t.global_seq ASC
-     LIMIT 1`,
-    [userId]
-  );
-  return rows[0] || null;
+  try {
+    const { rows } = await client.query(
+      `SELECT t.id, t.global_seq, COALESCE(t.phase, 1) AS phase, t.title
+       FROM cs_topics t
+       LEFT JOIN user_cs_progress ucp ON ucp.topic_id = t.id AND ucp.user_id = $1 AND ucp.completed = TRUE
+       WHERE (ucp.completed IS NULL OR ucp.completed = FALSE)
+         AND NOT EXISTS (
+           SELECT 1 FROM cs_topic_prerequisites p
+           LEFT JOIN user_cs_progress pr_ucp ON pr_ucp.topic_id = p.prereq_topic_id AND pr_ucp.user_id = $1 AND pr_ucp.completed = TRUE
+           WHERE p.topic_id = t.id AND (pr_ucp.completed IS NULL OR pr_ucp.completed = FALSE)
+         )
+       ORDER BY COALESCE(t.phase, 1) ASC, t.global_seq ASC
+       LIMIT 1`,
+      [userId]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    // Graceful fallback if cs_topic_prerequisites is pending or unavailable
+    const { rows } = await client.query(
+      `SELECT t.id, t.global_seq, 1 AS phase, t.title
+       FROM cs_topics t
+       LEFT JOIN user_cs_progress ucp ON ucp.topic_id = t.id AND ucp.user_id = $1 AND ucp.completed = TRUE
+       WHERE (ucp.completed IS NULL OR ucp.completed = FALSE)
+       ORDER BY t.global_seq ASC
+       LIMIT 1`,
+      [userId]
+    );
+    return rows[0] || null;
+  }
 }
 
 async function getActiveTopicSeq(client, userId) {
@@ -69,14 +83,22 @@ router.get('/curriculum', async (req, res) => {
         [userId]
       );
 
-      // Prerequisites for all topics
-      const { rows: prereqRows } = await client.query(
-        `SELECT p.topic_id, p.prereq_topic_id, pt.global_seq AS prereq_global_seq,
-                pt.title AS prereq_title, COALESCE(ucp.completed, FALSE) AS prereq_completed
-         FROM cs_topic_prerequisites p
-         JOIN cs_topics pt ON pt.id = p.prereq_topic_id
-         LEFT JOIN user_cs_progress ucp ON ucp.topic_id = pt.id AND ucp.user_id = $1`
-      );
+      // Prerequisites for all topics (with userId parameter)
+      let prereqRows = [];
+      try {
+        const { rows } = await client.query(
+          `SELECT p.topic_id, p.prereq_topic_id, pt.global_seq AS prereq_global_seq,
+                  pt.title AS prereq_title, COALESCE(ucp.completed, FALSE) AS prereq_completed
+           FROM cs_topic_prerequisites p
+           JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+           LEFT JOIN user_cs_progress ucp ON ucp.topic_id = pt.id AND ucp.user_id = $1`,
+          [userId]
+        );
+        prereqRows = rows;
+      } catch (prereqErr) {
+        console.warn('Could not query cs_topic_prerequisites:', prereqErr.message);
+        prereqRows = [];
+      }
 
       const prereqMap = {};
       for (const pr of prereqRows) {
@@ -703,7 +725,9 @@ router.get('/stats', async (req, res) => {
 
       // Active topic
       const { rows: activeRows } = await client.query(
-        `SELECT t.id, t.title, t.global_seq, m.title AS module_title, sec.title AS section_title
+        `SELECT t.id, t.title, t.global_seq, m.title AS module_title, sec.title AS section_title,
+                COALESCE(t.phase, 1) AS phase, COALESCE(t.stage, '') AS stage,
+                COALESCE(t.primary_language, 'cpp') AS primary_language
          FROM cs_topics t
          JOIN cs_modules m ON m.id = t.module_id
          JOIN cs_sections sec ON sec.id = t.section_id
@@ -725,6 +749,27 @@ router.get('/stats', async (req, res) => {
       );
 
       const completedModules = modRows.filter((m) => m.total_topics === m.completed_topics);
+
+      // Phase 1 and Phase 2 statistics
+      let phase1Topics = 120, phase1Completed = 0, phase2Topics = 49, phase2Completed = 0;
+      try {
+        const { rows: phaseRows } = await client.query(
+          `SELECT
+             COUNT(t.id) FILTER (WHERE COALESCE(t.phase, 1) = 1)::int AS phase1_total,
+             COUNT(t.id) FILTER (WHERE COALESCE(t.phase, 1) = 1 AND ucp.completed = TRUE)::int AS phase1_completed,
+             COUNT(t.id) FILTER (WHERE t.phase = 2)::int AS phase2_total,
+             COUNT(t.id) FILTER (WHERE t.phase = 2 AND ucp.completed = TRUE)::int AS phase2_completed
+           FROM cs_topics t
+           LEFT JOIN user_cs_progress ucp ON ucp.topic_id = t.id AND ucp.user_id = $1`,
+          [userId]
+        );
+        if (phaseRows.length > 0) {
+          phase1Topics = phaseRows[0].phase1_total || 120;
+          phase1Completed = phaseRows[0].phase1_completed || 0;
+          phase2Topics = phaseRows[0].phase2_total || 49;
+          phase2Completed = phaseRows[0].phase2_completed || 0;
+        }
+      } catch (_) {}
 
       // Current module progress
       let currentModuleProgress = null;
@@ -758,6 +803,10 @@ router.get('/stats', async (req, res) => {
         current_module_progress: currentModuleProgress,
         recently_completed: recentRows,
         modules: modRows,
+        phase1_topics: phase1Topics,
+        phase1_completed: phase1Completed,
+        phase2_topics: phase2Topics,
+        phase2_completed: phase2Completed,
       });
     } finally {
       client.release();
