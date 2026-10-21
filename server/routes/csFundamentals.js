@@ -7,19 +7,30 @@ const router = express.Router();
 // ── All routes require authentication ─────────────────────────────────────────
 router.use(authenticateToken);
 
-// ── Helper: get the user's current active topic global_seq ───────────────────
-// The active topic is the lowest global_seq that is NOT yet completed.
-async function getActiveTopicSeq(client, userId) {
-  // Find completed topic count for this user
+// ── Helper: get the user's recommended active topic ──────────────────────────
+// Finds the first incomplete topic (prioritizing Phase 1, then lowest global_seq)
+// whose prerequisites are all completed.
+async function getRecommendedActiveTopic(client, userId) {
   const { rows } = await client.query(
-    `SELECT COALESCE(MAX(t.global_seq), 0) AS last_completed_seq
-     FROM user_cs_progress ucp
-     JOIN cs_topics t ON t.id = ucp.topic_id
-     WHERE ucp.user_id = $1 AND ucp.completed = TRUE`,
+    `SELECT t.id, t.global_seq, t.phase, t.title
+     FROM cs_topics t
+     LEFT JOIN user_cs_progress ucp ON ucp.topic_id = t.id AND ucp.user_id = $1 AND ucp.completed = TRUE
+     WHERE (ucp.completed IS NULL OR ucp.completed = FALSE)
+       AND NOT EXISTS (
+         SELECT 1 FROM cs_topic_prerequisites p
+         LEFT JOIN user_cs_progress pr_ucp ON pr_ucp.topic_id = p.prereq_topic_id AND pr_ucp.user_id = $1 AND pr_ucp.completed = TRUE
+         WHERE p.topic_id = t.id AND (pr_ucp.completed IS NULL OR pr_ucp.completed = FALSE)
+       )
+     ORDER BY t.phase ASC, t.global_seq ASC
+     LIMIT 1`,
     [userId]
   );
-  const lastSeq = rows[0]?.last_completed_seq ?? 0;
-  return lastSeq + 1; // next seq is the active one
+  return rows[0] || null;
+}
+
+async function getActiveTopicSeq(client, userId) {
+  const active = await getRecommendedActiveTopic(client, userId);
+  return active ? active.global_seq : 1;
 }
 
 // ── GET /api/cs-fundamentals/curriculum ───────────────────────────────────────
@@ -29,7 +40,8 @@ router.get('/curriculum', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const activeSeq = await getActiveTopicSeq(client, userId);
+      const activeTopic = await getRecommendedActiveTopic(client, userId);
+      const activeSeq = activeTopic ? activeTopic.global_seq : null;
 
       // All modules
       const { rows: modules } = await client.query(
@@ -41,10 +53,14 @@ router.get('/curriculum', async (req, res) => {
         'SELECT id, module_id, seq, title FROM cs_sections ORDER BY module_id, seq'
       );
 
-      // All topics with user progress
+      // All topics with user progress and metadata
       const { rows: topics } = await client.query(
         `SELECT t.id, t.module_id, t.section_id, t.global_seq, t.section_seq,
                 t.title, t.description, t.objectives, t.est_minutes,
+                COALESCE(t.phase, 1) AS phase,
+                COALESCE(t.stage, '') AS stage,
+                COALESCE(t.primary_language, 'cpp') AS primary_language,
+                COALESCE(t.is_optional, FALSE) AS is_optional,
                 COALESCE(ucp.completed, FALSE) AS completed,
                 ucp.completed_at
          FROM cs_topics t
@@ -53,9 +69,33 @@ router.get('/curriculum', async (req, res) => {
         [userId]
       );
 
+      // Prerequisites for all topics
+      const { rows: prereqRows } = await client.query(
+        `SELECT p.topic_id, p.prereq_topic_id, pt.global_seq AS prereq_global_seq,
+                pt.title AS prereq_title, COALESCE(ucp.completed, FALSE) AS prereq_completed
+         FROM cs_topic_prerequisites p
+         JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+         LEFT JOIN user_cs_progress ucp ON ucp.topic_id = pt.id AND ucp.user_id = $1`
+      );
+
+      const prereqMap = {};
+      for (const pr of prereqRows) {
+        if (!prereqMap[pr.topic_id]) prereqMap[pr.topic_id] = [];
+        prereqMap[pr.topic_id].push({
+          id: pr.prereq_topic_id,
+          global_seq: pr.prereq_global_seq,
+          title: pr.prereq_title,
+          completed: pr.prereq_completed,
+        });
+      }
+
       // Total topics for stats
       const totalTopics = topics.length;
       const completedTopics = topics.filter((t) => t.completed).length;
+      const phase1Topics = topics.filter((t) => t.phase === 1);
+      const phase1Completed = phase1Topics.filter((t) => t.completed).length;
+      const phase2Topics = topics.filter((t) => t.phase === 2);
+      const phase2Completed = phase2Topics.filter((t) => t.completed).length;
 
       // Build the nested structure
       const moduleMap = {};
@@ -84,13 +124,14 @@ router.get('/curriculum', async (req, res) => {
       }
 
       for (const topic of topics) {
+        const prereqs = prereqMap[topic.id] || [];
+        const allPrereqsMet = prereqs.length === 0 || prereqs.every((p) => p.completed);
+
         let status;
         if (topic.completed) {
           status = 'completed';
-        } else if (topic.global_seq === activeSeq) {
-          status = 'active';
-        } else if (topic.global_seq < activeSeq) {
-          status = 'completed'; // shouldn't happen but safety net
+        } else if (allPrereqsMet) {
+          status = (topic.global_seq === activeSeq) ? 'active' : 'unlocked';
         } else {
           status = 'locked';
         }
@@ -103,6 +144,11 @@ router.get('/curriculum', async (req, res) => {
           description: topic.description,
           objectives: topic.objectives,
           est_minutes: topic.est_minutes,
+          phase: topic.phase,
+          stage: topic.stage,
+          primary_language: topic.primary_language,
+          is_optional: topic.is_optional,
+          prerequisites: prereqs,
           completed: topic.completed,
           completed_at: topic.completed_at,
           status,
@@ -119,12 +165,25 @@ router.get('/curriculum', async (req, res) => {
       for (const mod of curriculumList) {
         let modTotal = 0;
         let modCompleted = 0;
+        let modPhase1Total = 0;
+        let modPhase1Completed = 0;
+        let modPhase2Total = 0;
+        let modPhase2Completed = 0;
+
         for (const sec of mod.sections) {
           modTotal += sec.topics.length;
           modCompleted += sec.topics.filter((t) => t.completed).length;
+          modPhase1Total += sec.topics.filter((t) => t.phase === 1).length;
+          modPhase1Completed += sec.topics.filter((t) => t.phase === 1 && t.completed).length;
+          modPhase2Total += sec.topics.filter((t) => t.phase === 2).length;
+          modPhase2Completed += sec.topics.filter((t) => t.phase === 2 && t.completed).length;
         }
         mod.total_topics = modTotal;
         mod.completed_topics = modCompleted;
+        mod.phase1_total = modPhase1Total;
+        mod.phase1_completed = modPhase1Completed;
+        mod.phase2_total = modPhase2Total;
+        mod.phase2_completed = modPhase2Completed;
         mod.is_completed = modTotal > 0 && modTotal === modCompleted;
       }
 
@@ -137,6 +196,14 @@ router.get('/curriculum', async (req, res) => {
           remaining_topics: totalTopics - completedTopics,
           completion_percentage:
             totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0,
+          phase1_total: phase1Topics.length,
+          phase1_completed: phase1Completed,
+          phase1_percentage:
+            phase1Topics.length > 0 ? Math.round((phase1Completed / phase1Topics.length) * 100) : 0,
+          phase2_total: phase2Topics.length,
+          phase2_completed: phase2Completed,
+          phase2_percentage:
+            phase2Topics.length > 0 ? Math.round((phase2Completed / phase2Topics.length) * 100) : 0,
           active_topic_seq: activeSeq,
           curriculum_complete: completedTopics === totalTopics && totalTopics > 0,
         },
@@ -159,23 +226,30 @@ router.get('/active-topic', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const activeSeq = await getActiveTopicSeq(client, userId);
+      const activeTopic = await getRecommendedActiveTopic(client, userId);
+
+      if (!activeTopic) {
+        return res.json({ curriculum_complete: true, active_topic: null });
+      }
 
       const { rows } = await client.query(
         `SELECT t.id, t.module_id, t.section_id, t.global_seq, t.section_seq,
                 t.title, t.description, t.objectives, t.est_minutes,
+                COALESCE(t.phase, 1) AS phase,
+                COALESCE(t.stage, '') AS stage,
+                COALESCE(t.primary_language, 'cpp') AS primary_language,
+                COALESCE(t.is_optional, FALSE) AS is_optional,
                 m.title AS module_title, m.seq AS module_seq,
                 sec.title AS section_title, sec.seq AS section_seq_val,
                 FALSE AS completed
          FROM cs_topics t
          JOIN cs_modules m ON m.id = t.module_id
          JOIN cs_sections sec ON sec.id = t.section_id
-         WHERE t.global_seq = $1`,
-        [activeSeq]
+         WHERE t.id = $1`,
+        [activeTopic.id]
       );
 
       if (rows.length === 0) {
-        // Curriculum complete
         return res.json({ curriculum_complete: true, active_topic: null });
       }
 
@@ -192,6 +266,16 @@ router.get('/active-topic', async (req, res) => {
         [userId, topic.id]
       );
 
+      // Get prerequisites
+      const { rows: prereqs } = await client.query(
+        `SELECT pt.id, pt.global_seq, pt.title, COALESCE(ucp.completed, FALSE) AS completed
+         FROM cs_topic_prerequisites p
+         JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+         LEFT JOIN user_cs_progress ucp ON ucp.topic_id = pt.id AND ucp.user_id = $1
+         WHERE p.topic_id = $2`,
+        [userId, topic.id]
+      );
+
       return res.json({
         curriculum_complete: false,
         active_topic: {
@@ -202,6 +286,11 @@ router.get('/active-topic', async (req, res) => {
           description: topic.description,
           objectives: topic.objectives,
           est_minutes: topic.est_minutes,
+          phase: topic.phase,
+          stage: topic.stage,
+          primary_language: topic.primary_language,
+          is_optional: topic.is_optional,
+          prerequisites: prereqs,
           module_title: topic.module_title,
           module_seq: topic.module_seq,
           section_title: topic.section_title,
@@ -235,11 +324,16 @@ router.get('/topics/:id', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const activeSeq = await getActiveTopicSeq(client, userId);
+      const activeTopic = await getRecommendedActiveTopic(client, userId);
+      const activeSeq = activeTopic ? activeTopic.global_seq : null;
 
       const { rows } = await client.query(
         `SELECT t.id, t.module_id, t.section_id, t.global_seq, t.section_seq,
                 t.title, t.description, t.objectives, t.est_minutes,
+                COALESCE(t.phase, 1) AS phase,
+                COALESCE(t.stage, '') AS stage,
+                COALESCE(t.primary_language, 'cpp') AS primary_language,
+                COALESCE(t.is_optional, FALSE) AS is_optional,
                 m.title AS module_title, m.seq AS module_seq,
                 sec.title AS section_title, sec.seq AS section_seq_val,
                 COALESCE(ucp.completed, FALSE) AS completed,
@@ -258,15 +352,38 @@ router.get('/topics/:id', async (req, res) => {
 
       const topic = rows[0];
 
+      // Get prerequisites with user completion status
+      const { rows: prereqs } = await client.query(
+        `SELECT pt.id, pt.global_seq, pt.title, COALESCE(ucp.completed, FALSE) AS completed
+         FROM cs_topic_prerequisites p
+         JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+         LEFT JOIN user_cs_progress ucp ON ucp.topic_id = pt.id AND ucp.user_id = $1
+         WHERE p.topic_id = $2
+         ORDER BY pt.global_seq`,
+        [userId, topic.id]
+      );
+
+      const allPrereqsMet = prereqs.length === 0 || prereqs.every((p) => p.completed);
+
       // Determine status
       let status;
       if (topic.completed) {
         status = 'completed';
-      } else if (topic.global_seq === activeSeq) {
-        status = 'active';
+      } else if (allPrereqsMet) {
+        status = (topic.global_seq === activeSeq) ? 'active' : 'unlocked';
       } else {
         status = 'locked';
       }
+
+      // Dependent topics (unlocks next)
+      const { rows: unlocksNext } = await client.query(
+        `SELECT dt.id, dt.global_seq, dt.title
+         FROM cs_topic_prerequisites p
+         JOIN cs_topics dt ON dt.id = p.topic_id
+         WHERE p.prereq_topic_id = $1
+         ORDER BY dt.global_seq`,
+        [topic.id]
+      );
 
       // Get checklist items
       const { rows: items } = await client.query(
@@ -279,16 +396,16 @@ router.get('/topics/:id', async (req, res) => {
         [userId, topic.id]
       );
 
-      // Previous topic
+      // Previous topic in global sequence
       const { rows: prevRows } = await client.query(
-        `SELECT id, title, global_seq FROM cs_topics WHERE global_seq = $1`,
-        [topic.global_seq - 1]
+        `SELECT id, title, global_seq FROM cs_topics WHERE global_seq < $1 ORDER BY global_seq DESC LIMIT 1`,
+        [topic.global_seq]
       );
 
-      // Next topic
+      // Next topic in global sequence
       const { rows: nextRows } = await client.query(
-        `SELECT id, title, global_seq FROM cs_topics WHERE global_seq = $1`,
-        [topic.global_seq + 1]
+        `SELECT id, title, global_seq FROM cs_topics WHERE global_seq > $1 ORDER BY global_seq ASC LIMIT 1`,
+        [topic.global_seq]
       );
 
       return res.json({
@@ -299,6 +416,12 @@ router.get('/topics/:id', async (req, res) => {
         description: topic.description,
         objectives: topic.objectives,
         est_minutes: topic.est_minutes,
+        phase: topic.phase,
+        stage: topic.stage,
+        primary_language: topic.primary_language,
+        is_optional: topic.is_optional,
+        prerequisites: prereqs,
+        unlocks_next: unlocksNext,
         module_title: topic.module_title,
         module_seq: topic.module_seq,
         section_title: topic.section_title,
@@ -323,7 +446,7 @@ router.get('/topics/:id', async (req, res) => {
 });
 
 // ── POST /api/cs-fundamentals/topics/:topicId/checklist/:itemId ───────────────
-// Toggle a checklist item. Only allowed on active or completed topics.
+// Toggle a checklist item. Allowed on unlocked or completed topics.
 router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
   const userId = req.user.id;
   const topicId = parseInt(req.params.topicId, 10);
@@ -341,8 +464,6 @@ router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const activeSeq = await getActiveTopicSeq(client, userId);
-
       // Verify topic exists
       const { rows: topicRows } = await client.query(
         'SELECT id, global_seq FROM cs_topics WHERE id = $1',
@@ -352,19 +473,28 @@ router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
         return res.status(404).json({ error: 'NOT_FOUND', message: 'Topic not found.' });
       }
 
-      const topic = topicRows[0];
-
-      // Only allow checklist edits on active or completed topics
+      // Check if topic is completed
       const isCompleted = (await client.query(
         'SELECT completed FROM user_cs_progress WHERE user_id = $1 AND topic_id = $2',
         [userId, topicId]
       )).rows[0]?.completed ?? false;
 
-      if (!isCompleted && topic.global_seq !== activeSeq) {
-        return res.status(403).json({
-          error: 'FORBIDDEN',
-          message: 'You can only update checklist items for your active or completed topics.',
-        });
+      // If not completed, verify prerequisites are met
+      if (!isCompleted) {
+        const { rows: missingPrereqs } = await client.query(
+          `SELECT pt.title
+           FROM cs_topic_prerequisites p
+           JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+           LEFT JOIN user_cs_progress ucp ON ucp.topic_id = p.prereq_topic_id AND ucp.user_id = $1 AND ucp.completed = TRUE
+           WHERE p.topic_id = $2 AND (ucp.completed IS NULL OR ucp.completed = FALSE)`,
+          [userId, topicId]
+        );
+        if (missingPrereqs.length > 0) {
+          return res.status(403).json({
+            error: 'FORBIDDEN',
+            message: 'You can only update checklist items for unlocked or completed topics.',
+          });
+        }
       }
 
       // Verify checklist item belongs to this topic
@@ -385,7 +515,6 @@ router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
       );
 
       // ── Daily Learning: log study activity (qualifying event for streak) ──
-      // Multiple inserts per day are intentional — they form the raw activity log.
       await client.query(
         `INSERT INTO user_cs_study_log (user_id, topic_id, activity)
          VALUES ($1, $2, 'checklist_updated')`,
@@ -406,7 +535,7 @@ router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
 });
 
 // ── POST /api/cs-fundamentals/topics/:id/complete ─────────────────────────────
-// Mark the ACTIVE topic as complete. Transactional.
+// Mark an unlocked topic as complete. Enforces prerequisite satisfaction & assessment gates.
 router.post('/topics/:id/complete', async (req, res) => {
   const userId = req.user.id;
   const topicId = parseInt(req.params.id, 10);
@@ -420,11 +549,9 @@ router.post('/topics/:id/complete', async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      const activeSeq = await getActiveTopicSeq(client, userId);
-
       // Fetch the topic
       const { rows: topicRows } = await client.query(
-        'SELECT id, global_seq FROM cs_topics WHERE id = $1',
+        'SELECT id, global_seq, phase, title FROM cs_topics WHERE id = $1',
         [topicId]
       );
       if (topicRows.length === 0) {
@@ -434,16 +561,7 @@ router.post('/topics/:id/complete', async (req, res) => {
 
       const topic = topicRows[0];
 
-      // Security: topic must be the current active one
-      if (topic.global_seq !== activeSeq) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({
-          error: 'FORBIDDEN',
-          message: 'You can only complete your current active topic.',
-        });
-      }
-
-      // Check if already completed (idempotent)
+      // Check if already completed (idempotent guard)
       const { rows: existingRows } = await client.query(
         'SELECT completed FROM user_cs_progress WHERE user_id = $1 AND topic_id = $2',
         [userId, topicId]
@@ -453,6 +571,24 @@ router.post('/topics/:id/complete', async (req, res) => {
         return res.status(409).json({
           error: 'ALREADY_COMPLETED',
           message: 'This topic is already marked as complete.',
+        });
+      }
+
+      // ── Prerequisite gate: verify all prerequisites are completed ──────────
+      const { rows: missingPrereqs } = await client.query(
+        `SELECT pt.id, pt.title, pt.global_seq
+         FROM cs_topic_prerequisites p
+         JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+         LEFT JOIN user_cs_progress ucp ON ucp.topic_id = p.prereq_topic_id AND ucp.user_id = $1 AND ucp.completed = TRUE
+         WHERE p.topic_id = $2 AND (ucp.completed IS NULL OR ucp.completed = FALSE)`,
+        [userId, topicId]
+      );
+      if (missingPrereqs.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          error: 'PREREQUISITES_NOT_MET',
+          message: `Cannot complete topic until its prerequisites are completed: ${missingPrereqs.map((p) => p.title).join(', ')}.`,
+          missing_prerequisites: missingPrereqs,
         });
       }
 
@@ -479,8 +615,7 @@ router.post('/topics/:id/complete', async (req, res) => {
         }
       }
 
-      // Mark complete
-
+      // Mark complete in user progress
       await client.query(
         `INSERT INTO user_cs_progress (user_id, topic_id, completed, completed_at)
          VALUES ($1, $2, TRUE, NOW())
@@ -488,11 +623,8 @@ router.post('/topics/:id/complete', async (req, res) => {
         [userId, topicId]
       );
 
-      // Find next topic
-      const { rows: nextRows } = await client.query(
-        `SELECT id, title, global_seq FROM cs_topics WHERE global_seq = $1`,
-        [topic.global_seq + 1]
-      );
+      // Find next recommended active topic
+      const nextTopic = await getRecommendedActiveTopic(client, userId);
 
       const totalTopics = (await client.query('SELECT COUNT(*) FROM cs_topics')).rows[0].count;
       const completedTopics = (await client.query(
@@ -510,14 +642,14 @@ router.post('/topics/:id/complete', async (req, res) => {
           [userId, topicId]
         );
       } catch (_) {
-        // Best-effort — do not fail the response if log insert fails
+        // Best-effort
       }
 
       return res.json({
         success: true,
         completed_topic_id: topicId,
-        next_topic: nextRows[0] || null,
-        curriculum_complete: nextRows.length === 0,
+        next_topic: nextTopic || null,
+        curriculum_complete: nextTopic === null,
         stats: {
           total_topics: parseInt(totalTopics, 10),
           completed_topics: parseInt(completedTopics, 10),
@@ -1122,6 +1254,358 @@ router.put('/cs-settings', async (req, res) => {
   } catch (err) {
     console.error('cs-fundamentals cs-settings PUT error:', err);
     return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to save settings.' });
+  }
+});
+
+// ── ── PLACEMENT & INTERVIEW PREPARATION ROUTES ──────────────────────────────
+
+// ── GET /api/cs-fundamentals/placement/projects ──────────────────────────────
+router.get('/placement/projects', async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM user_interview_projects WHERE user_id = $1 ORDER BY updated_at DESC`,
+      [userId]
+    );
+    return res.json({ projects: rows });
+  } catch (err) {
+    console.error('get placement projects error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load projects.' });
+  }
+});
+
+// ── POST /api/cs-fundamentals/placement/projects ─────────────────────────────
+router.post('/placement/projects', async (req, res) => {
+  const userId = req.user.id;
+  const {
+    title, target_users, problem_statement, architecture, tech_stack,
+    db_design, key_decisions, tradeoffs, security_notes, performance_notes,
+    bugs_resolved, testing_deployment, future_improvements, defense_qa, is_ready
+  } = req.body;
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Project title is required.' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_interview_projects (
+        user_id, title, target_users, problem_statement, architecture, tech_stack,
+        db_design, key_decisions, tradeoffs, security_notes, performance_notes,
+        bugs_resolved, testing_deployment, future_improvements, defense_qa, is_ready
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING *`,
+      [
+        userId, title.trim(), target_users || '', problem_statement || '', architecture || '', tech_stack || '',
+        db_design || '', key_decisions || '', tradeoffs || '', security_notes || '', performance_notes || '',
+        bugs_resolved || '', testing_deployment || '', future_improvements || '', JSON.stringify(defense_qa || []),
+        Boolean(is_ready)
+      ]
+    );
+    return res.status(201).json({ project: rows[0] });
+  } catch (err) {
+    console.error('create placement project error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to create project.' });
+  }
+});
+
+// ── PUT /api/cs-fundamentals/placement/projects/:id ──────────────────────────
+router.put('/placement/projects/:id', async (req, res) => {
+  const userId = req.user.id;
+  const projectId = parseInt(req.params.id, 10);
+  if (!projectId || isNaN(projectId)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid project id.' });
+  }
+
+  const {
+    title, target_users, problem_statement, architecture, tech_stack,
+    db_design, key_decisions, tradeoffs, security_notes, performance_notes,
+    bugs_resolved, testing_deployment, future_improvements, defense_qa, is_ready
+  } = req.body;
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE user_interview_projects SET
+        title = COALESCE($1, title),
+        target_users = COALESCE($2, target_users),
+        problem_statement = COALESCE($3, problem_statement),
+        architecture = COALESCE($4, architecture),
+        tech_stack = COALESCE($5, tech_stack),
+        db_design = COALESCE($6, db_design),
+        key_decisions = COALESCE($7, key_decisions),
+        tradeoffs = COALESCE($8, tradeoffs),
+        security_notes = COALESCE($9, security_notes),
+        performance_notes = COALESCE($10, performance_notes),
+        bugs_resolved = COALESCE($11, bugs_resolved),
+        testing_deployment = COALESCE($12, testing_deployment),
+        future_improvements = COALESCE($13, future_improvements),
+        defense_qa = COALESCE($14, defense_qa),
+        is_ready = COALESCE($15, is_ready),
+        updated_at = NOW()
+      WHERE id = $16 AND user_id = $17
+      RETURNING *`,
+      [
+        title ? title.trim() : null, target_users, problem_statement, architecture, tech_stack,
+        db_design, key_decisions, tradeoffs, security_notes, performance_notes,
+        bugs_resolved, testing_deployment, future_improvements,
+        defense_qa !== undefined ? JSON.stringify(defense_qa) : null,
+        is_ready !== undefined ? Boolean(is_ready) : null,
+        projectId, userId
+      ]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Project not found.' });
+    }
+    return res.json({ project: rows[0] });
+  } catch (err) {
+    console.error('update placement project error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to update project.' });
+  }
+});
+
+// ── DELETE /api/cs-fundamentals/placement/projects/:id ───────────────────────
+router.delete('/placement/projects/:id', async (req, res) => {
+  const userId = req.user.id;
+  const projectId = parseInt(req.params.id, 10);
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM user_interview_projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    );
+    if (rowCount === 0) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Project not found.' });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('delete placement project error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to delete project.' });
+  }
+});
+
+// ── GET /api/cs-fundamentals/placement/applications ──────────────────────────
+router.get('/placement/applications', async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM user_job_applications WHERE user_id = $1 ORDER BY application_date DESC, updated_at DESC`,
+      [userId]
+    );
+    return res.json({ applications: rows });
+  } catch (err) {
+    console.error('get placement applications error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load applications.' });
+  }
+});
+
+// ── POST /api/cs-fundamentals/placement/applications ─────────────────────────
+router.post('/placement/applications', async (req, res) => {
+  const userId = req.user.id;
+  const { company, role, application_date, status, eligibility_notes, interview_date, follow_up_notes, outcome_notes } = req.body;
+
+  if (!company || !company.trim() || !role || !role.trim()) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Company and Role are required.' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_job_applications (
+        user_id, company, role, application_date, status, eligibility_notes, interview_date, follow_up_notes, outcome_notes
+      ) VALUES ($1, $2, $3, COALESCE($4, CURRENT_DATE), COALESCE($5, 'Applied'), $6, $7, $8, $9)
+      RETURNING *`,
+      [
+        userId, company.trim(), role.trim(), application_date || null, status || 'Applied',
+        eligibility_notes || '', interview_date || null, follow_up_notes || '', outcome_notes || ''
+      ]
+    );
+    return res.status(201).json({ application: rows[0] });
+  } catch (err) {
+    console.error('create placement application error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to create application.' });
+  }
+});
+
+// ── PUT /api/cs-fundamentals/placement/applications/:id ──────────────────────
+router.put('/placement/applications/:id', async (req, res) => {
+  const userId = req.user.id;
+  const appId = parseInt(req.params.id, 10);
+  const { company, role, application_date, status, eligibility_notes, interview_date, follow_up_notes, outcome_notes } = req.body;
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE user_job_applications SET
+        company = COALESCE($1, company),
+        role = COALESCE($2, role),
+        application_date = COALESCE($3, application_date),
+        status = COALESCE($4, status),
+        eligibility_notes = COALESCE($5, eligibility_notes),
+        interview_date = COALESCE($6, interview_date),
+        follow_up_notes = COALESCE($7, follow_up_notes),
+        outcome_notes = COALESCE($8, outcome_notes),
+        updated_at = NOW()
+      WHERE id = $9 AND user_id = $10
+      RETURNING *`,
+      [
+        company ? company.trim() : null, role ? role.trim() : null, application_date, status,
+        eligibility_notes, interview_date, follow_up_notes, outcome_notes, appId, userId
+      ]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Application not found.' });
+    }
+    return res.json({ application: rows[0] });
+  } catch (err) {
+    console.error('update placement application error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to update application.' });
+  }
+});
+
+// ── DELETE /api/cs-fundamentals/placement/applications/:id ───────────────────
+router.delete('/placement/applications/:id', async (req, res) => {
+  const userId = req.user.id;
+  const appId = parseInt(req.params.id, 10);
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM user_job_applications WHERE id = $1 AND user_id = $2',
+      [appId, userId]
+    );
+    if (rowCount === 0) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Application not found.' });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('delete placement application error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to delete application.' });
+  }
+});
+
+// ── GET /api/cs-fundamentals/placement/mock-interviews ───────────────────────
+router.get('/placement/mock-interviews', async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM user_mock_interviews WHERE user_id = $1 ORDER BY completed_at DESC`,
+      [userId]
+    );
+    return res.json({ mock_interviews: rows });
+  } catch (err) {
+    console.error('get mock interviews error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load mock interviews.' });
+  }
+});
+
+// ── POST /api/cs-fundamentals/placement/mock-interviews ──────────────────────
+router.post('/placement/mock-interviews', async (req, res) => {
+  const userId = req.user.id;
+  const { interview_type, scheduled_at, strengths, weaknesses, communication_rating, technical_rating, feedback, revision_topics, action_items } = req.body;
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_mock_interviews (
+        user_id, interview_type, scheduled_at, completed_at, strengths, weaknesses,
+        communication_rating, technical_rating, feedback, revision_topics, action_items
+      ) VALUES ($1, COALESCE($2, 'dsa'), $3, NOW(), $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *`,
+      [
+        userId, interview_type || 'dsa', scheduled_at || null, strengths || '', weaknesses || '',
+        communication_rating || 3, technical_rating || 3, feedback || '', revision_topics || '', action_items || ''
+      ]
+    );
+    return res.status(201).json({ mock_interview: rows[0] });
+  } catch (err) {
+    console.error('create mock interview error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to record mock interview.' });
+  }
+});
+
+// ── GET /api/cs-fundamentals/placement/timed-assessments ─────────────────────
+router.get('/placement/timed-assessments', async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM user_timed_assessments WHERE user_id = $1 ORDER BY started_at DESC`,
+      [userId]
+    );
+    return res.json({ timed_assessments: rows });
+  } catch (err) {
+    console.error('get timed assessments error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load timed assessments.' });
+  }
+});
+
+// ── POST /api/cs-fundamentals/placement/timed-assessments ────────────────────
+router.post('/placement/timed-assessments', async (req, res) => {
+  const userId = req.user.id;
+  const { title, duration_minutes, score, total_problems, problems_data, performance_summary, feedback } = req.body;
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_timed_assessments (
+        user_id, title, duration_minutes, started_at, completed_at, score, total_problems, problems_data, performance_summary, feedback
+      ) VALUES ($1, COALESCE($2, 'Timed Coding Assessment'), COALESCE($3, 30), NOW(), NOW(), COALESCE($4, 0), COALESCE($5, 2), $6, $7, $8)
+      RETURNING *`,
+      [
+        userId, title || 'Timed Coding Assessment', duration_minutes || 30, score || 0,
+        total_problems || 2, JSON.stringify(problems_data || []), performance_summary || '', feedback || ''
+      ]
+    );
+    return res.status(201).json({ timed_assessment: rows[0] });
+  } catch (err) {
+    console.error('create timed assessment error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to record timed assessment.' });
+  }
+});
+
+// ── GET /api/cs-fundamentals/placement/weekly-revision ───────────────────────
+router.get('/placement/weekly-revision', async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // 1. Weak DSA problems (Unable to solve or low confidence)
+    const { rows: weakProblems } = await pool.query(
+      `SELECT id, title, platform, difficulty, solving_status, confidence_level, key_insight, solved_at
+       FROM problems
+       WHERE user_id = $1 AND (solving_status = 'Unable To Solve' OR confidence_level <= 2)
+       ORDER BY solved_at DESC LIMIT 6`,
+      [userId]
+    );
+
+    // 2. Scheduled spaced repetition due in next 7 days
+    const { rows: dueRevisions } = await pool.query(
+      `SELECT id, title, difficulty, next_revision_at, solving_status
+       FROM problems
+       WHERE user_id = $1 AND next_revision_at IS NOT NULL AND next_revision_at <= NOW() + INTERVAL '7 days'
+       ORDER BY next_revision_at ASC LIMIT 6`,
+      [userId]
+    );
+
+    // 3. Failed or weak CS assessments
+    const { rows: weakAssessments } = await pool.query(
+      `SELECT a.id, a.topic_id, t.title AS topic_title, t.global_seq, a.score, a.passed, a.submitted_at
+       FROM user_cs_assessment_attempts a
+       JOIN cs_topics t ON t.id = a.topic_id
+       WHERE a.user_id = $1 AND a.passed = FALSE
+       ORDER BY a.submitted_at DESC LIMIT 6`,
+      [userId]
+    );
+
+    // 4. Mock interview action items
+    const { rows: mockActionItems } = await pool.query(
+      `SELECT id, interview_type, revision_topics, action_items, completed_at
+       FROM user_mock_interviews
+       WHERE user_id = $1 AND (revision_topics != '' OR action_items != '')
+       ORDER BY completed_at DESC LIMIT 5`,
+      [userId]
+    );
+
+    return res.json({
+      weak_problems: weakProblems,
+      due_revisions: dueRevisions,
+      weak_assessments: weakAssessments,
+      mock_action_items: mockActionItems,
+    });
+  } catch (err) {
+    console.error('get weekly revision error:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load weekly revision plan.' });
   }
 });
 

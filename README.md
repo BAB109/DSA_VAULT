@@ -46,29 +46,37 @@
 * **Configurable Cadence:** Users can customize revision intervals in Settings.
 * **Manual Rescheduling & History:** Track full audit logs of past revision attempts while retaining the ability to manually reschedule.
 
-### 📚 CS Fundamentals Learning Path
-* **14 Comprehensive Modules:** Complete curriculum covering:
-  1. *Programming Language Fundamentals* (Syntax, Memory, Concurrency, FP, Types, Language specifics)
-  2. *Data Structures and Algorithms* (Arrays, Lists, Trees, Graphs, DP, Greedy, Heaps, Advanced DS)
-  3. *Object-Oriented Programming* (Pillars, SOLID Principles, Design Patterns, UML)
-  4. *Database Management Systems and SQL* (Relational Model, Advanced SQL, Normalization, Transactions & ACID, Indexing, NoSQL)
-  5. *Operating Systems* (Processes, Virtual Memory, Scheduling, Deadlocks, Virtualization)
-  6. *Computer Networks* (OSI/TCP-IP, Transport Protocols, HTTP 1/2/3, DNS, Routing, TLS)
-  7. *Software Engineering and Developer Tools* (Agile, Git internals, Testing pyramid, CI/CD, DevOps)
-  8. *Backend Development and API Engineering* (REST, GraphQL, gRPC, Auth/JWT, Caching, Message Queues)
-  9. *Low-Level Design* (LLD patterns, Parking Lot, ATM, Elevator, Chess, Thread safety)
-  10. *High-Level Design and Distributed Systems* (Scalability, Sharding, Consistent Hashing, Consensus, Feed, KV store)
-  11. *Security, Deployment and Cloud Fundamentals* (OWASP Top 10, Crypto, Cloud VPC, Docker, K8s, Canary)
-  12. *AI/ML and AI Engineering* (Supervised/Unsupervised, Deep Learning, Transformers, Embeddings, RAG)
-  13. *Computer Architecture and Compiler Fundamentals* (Von Neumann, Pipelining, Caches, Lexing/Parsing)
-  14. *Interview Preparation and Project Defense* (Coding strategy, STAR stories, Architecture defense, Negotiation)
-* **166 Structured Topics:** Each topic has unique global sequencing, learning objectives, estimated study duration, and specific checklist items.
-* **Strict Sequential Unlocking:**
-  * First topic is unlocked for new learners.
-  * Only one incomplete topic is active at any time; subsequent topics remain locked.
-  * Completing the active topic immediately unlocks the next.
-  * Completed topics remain accessible for review.
-  * Tamper-proof backend enforcement: attempts to mark locked topics complete are blocked with 403 Forbidden.
+### 📚 CS Fundamentals & Placement Preparation Curriculum
+* **Two-Phase Architecture:**
+  * **Phase 1: Foundations and Placement Essentials (~120 topics):** Comprehensive core computer science and interview curriculum focused on technical hiring bars. Includes programming foundations, structured DSA (Stages A–F), Object-Oriented Programming, Database Management Systems, Operating Systems, Computer Networks, and Backend Engineering.
+  * **Phase 2: Advanced CS and Engineering (~49 topics):** Advanced distributed systems consensus (Raft/Paxos), compiler theory (lexing/parsing/AST/codegen), advanced data structures (Segment Trees, Treaps, Tries, Disjoint Set Union), container orchestration (Kubernetes internals), and advanced deep learning systems. Topics have clear prerequisite links from Phase 1.
+* **DSA Systematic Progression (Stages A–F):**
+  * *Stage A: Asymptotic Analysis & Foundations* (Big-O/Theta/Omega, space/time trade-offs, standard library container costs).
+  * *Stage B: Core Algorithmic Patterns* (Two Pointers, Sliding Window, Prefix Sums, Binary Search on sorted spaces & answer spaces).
+  * *Stage C: Recursion, Backtracking & Search* (Recursion trees, state pruning, subsets/permutations, with an optional *Bit Manipulation* track).
+  * *Stage D: Linear & Hierarchical Data Structures* (Monotonic stacks, queues, linked lists, trees, binary search trees, heaps & priority queues).
+  * *Stage E: Graph Algorithms* (Breadth-First Search, Depth-First Search, Topological Sort / Kahn's algorithm, Dijkstra's shortest paths, Minimum Spanning Trees).
+  * *Stage F: Dynamic Programming* (State definition, recurrence relations, 1D & 2D tables, 0/1 & Unbounded Knapsack, Interval DP, and Tree/DAG DP).
+* **Subject-Specific Primary Language Designations:**
+  * **C++:** Primary language for Data Structures, Algorithms, Programming Fundamentals, and Low-Level Design (emphasizing pointer mechanics, STL efficiency, and performance constraints; alternative Java/Python solutions accepted).
+  * **Python:** Primary language for AI/ML, Data Processing, and rapid scripting (Stages 1–6 from Python Basics to PyTorch and RAG pipelines).
+  * **SQL:** Primary query language for Relational DBMS, indexing, and query optimization.
+  * **JavaScript / Node.js:** Primary runtime for Backend API engineering and developer tools.
+* **Prerequisite-Driven Directed Acyclic Graph (DAG) Unlocking:**
+  * Eliminates artificial global sequential bottlenecks: topics unlock dynamically as soon as their direct prerequisite topics are completed (`cs_topic_prerequisites`).
+  * Backend strictly validates prerequisite satisfaction before permitting topic completion.
+  * Dependency graph validated with 0 cycles across all 169 curriculum topics.
+
+### 💼 Parallel Placement Preparation Center
+Runs continuously in parallel with the curriculum—learners can prepare for hiring rounds at any stage without having to finish all 169 topics first:
+* **Track A — Daily Problem-Solving Routine:** Maintain a consistent habit of 1–2 algorithmic problems per day in C++ with time and space complexity notes.
+* **Track B — Timed Assessments & Speed Practice:** Log timed test simulations (45–60 minute rounds) mimicking real-world company Online Assessments (OA).
+* **Track C — Core CS Interview Refresher:** Rapid interview revision covering high-frequency viva/interview topics in OS, DBMS, Networks, and OOP.
+* **Track D — Deep Project Defense & Application Tracker:**
+  * *Deep Project Defense:* Document resume projects with architecture diagrams, technology trade-offs, scalability bottlenecks, failure modes, and anticipated interviewer challenge questions.
+  * *Application Tracker:* Track company, role, status (*Applied*, *OA Pending*, *Interviewing*, *Offered*, *Rejected*), CTC/salary range, next steps, and referral notes.
+* **Track E — Mock Interviews & Behavioral Prep:** Record mock technical and HR interviews, track scores out of 10, interviewer feedback, strengths, and areas for improvement.
+* **Spaced Weekly Revision:** Review completed curriculum topics grouped by module to counteract forgetting curves.
 
 ### 📅 Daily Learning & Streak System
 * **Today's Learning Dashboard (`/cs-fundamentals/daily`):** Highlights today's active topic, module context, objectives, remaining checklist tasks, and overall curriculum completion.
@@ -247,6 +255,7 @@ DSA Vault utilizes **versioned, forward-only SQL migrations** tracked in the `sc
 6. `006_cs_fundamentals.sql` — CS Fundamentals schema (`cs_modules`, `cs_sections`, `cs_topics`, `cs_topic_checklist_items`, `user_cs_progress`, `user_cs_checklist_progress`) and full 14-module curriculum seed.
 7. `007_cs_daily_learning.sql` — Study activity log table (`user_cs_study_log`), daily checklist target setting, and learning timezone support.
 8. `008_cs_assessments.sql` — Topic assessment question bank (`cs_assessment_questions`), topic assessment configurations (`cs_topic_assessment_config`), attempt history records (`user_cs_assessment_attempts`, `user_cs_assessment_answers`), and question bank seeds.
+9. `009_curriculum_reorganization.sql` — Curriculum reorganization into Phase 1 & 2, DSA Stages A–F, Primary Languages (C++, Python, SQL, JS), prerequisite dependency DAG (`cs_topic_prerequisites`), parallel placement preparation schema (`user_interview_projects`, `user_job_applications`, `user_mock_interviews`, `user_timed_assessments`), and new foundational topics (Bit Manipulation, Python for Data Work, Math & Stats for ML).
 
 ### Running Migrations
 ```bash
@@ -285,6 +294,21 @@ npm run db:migrate
 * `POST /api/cs-assessments/topics/:topicId/assessment` — Submit answers for server-side evaluation and score recording.
 * `GET /api/cs-assessments/topics/:topicId/assessment/attempts` — Full audit history with per-question review and explanations.
 * `GET /api/cs-assessments/topics/:topicId/pass-status` — Quick status check on whether the topic requires an assessment and if user passed.
+
+### Placement & Interview Tracks (`/api/cs-fundamentals/placement`)
+* `GET /api/cs-fundamentals/placement/projects` — Fetch tracked resume projects for technical defense.
+* `POST /api/cs-fundamentals/placement/projects` — Add project with architecture overview, trade-offs, and defense questions.
+* `PUT /api/cs-fundamentals/placement/projects/:id` — Update project defense details or readiness level (1–5).
+* `DELETE /api/cs-fundamentals/placement/projects/:id` — Remove project from defense tracker.
+* `GET /api/cs-fundamentals/placement/applications` — Fetch all job & internship applications.
+* `POST /api/cs-fundamentals/placement/applications` — Record application (company, role, status, CTC, deadlines, notes).
+* `PUT /api/cs-fundamentals/placement/applications/:id` — Update application status (*Applied*, *OA Pending*, *Interviewing*, *Offered*, *Rejected*).
+* `DELETE /api/cs-fundamentals/placement/applications/:id` — Delete application record.
+* `GET /api/cs-fundamentals/placement/mock-interviews` — Fetch past mock interview records and performance feedback.
+* `POST /api/cs-fundamentals/placement/mock-interviews` — Record a mock session (type, score /10, strengths, improvement areas).
+* `GET /api/cs-fundamentals/placement/timed-assessments` — Fetch timed test simulation records.
+* `POST /api/cs-fundamentals/placement/timed-assessments` — Record timed test attempt (duration, questions, score %, pass/fail).
+* `GET /api/cs-fundamentals/placement/weekly-revision` — Retrieve completed topics grouped by module for spaced revision.
 
 ---
 

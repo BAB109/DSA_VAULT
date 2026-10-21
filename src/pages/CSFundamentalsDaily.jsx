@@ -570,6 +570,68 @@ export default function CSFundamentalsDaily() {
         />
       </div>
 
+      {/* Parallel Placement Preparation Quick Access */}
+      <div className="bg-gradient-to-r from-indigo-50/60 via-purple-50/40 to-blue-50/60 border border-indigo-200/80 rounded-xl p-5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-indigo-950 flex items-center gap-2">
+              <Target size={16} className="text-indigo-600" />
+              Parallel Placement Preparation Tracks
+            </h3>
+            <p className="text-xs text-indigo-800/80 mt-0.5">
+              Practice Daily DSA, conduct mock interviews, and refine your project defense alongside your curriculum topics.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/cs-fundamentals')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-xs transition-colors"
+          >
+            Placement Center <ArrowRight size={13} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div
+            onClick={() => navigate('/library')}
+            className="p-3 bg-white border border-indigo-100 rounded-lg hover:border-indigo-300 cursor-pointer transition-colors"
+          >
+            <p className="text-xs font-bold text-gray-900">Track A: Daily DSA Practice</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Solve & review 1–2 algorithmic problems per day in C++ with complexity notes.
+            </p>
+            <span className="text-xs font-semibold text-indigo-600 mt-2 flex items-center gap-1">
+              DSA Library →
+            </span>
+          </div>
+
+          <div
+            onClick={() => navigate('/revision')}
+            className="p-3 bg-white border border-purple-100 rounded-lg hover:border-purple-300 cursor-pointer transition-colors"
+          >
+            <p className="text-xs font-bold text-gray-900">Track B & Revision: Spaced Recall</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Due revisions and spaced retention queue to keep patterns fresh.
+            </p>
+            <span className="text-xs font-semibold text-purple-600 mt-2 flex items-center gap-1">
+              Revision Center →
+            </span>
+          </div>
+
+          <div
+            onClick={() => navigate('/cs-fundamentals')}
+            className="p-3 bg-white border border-emerald-100 rounded-lg hover:border-emerald-300 cursor-pointer transition-colors"
+          >
+            <p className="text-xs font-bold text-gray-900">Track D & E: Defense & Mocks</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Project trade-offs defense tracker, applications log, and mock interview notes.
+            </p>
+            <span className="text-xs font-semibold text-emerald-600 mt-2 flex items-center gap-1">
+              Interview Center →
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Study history */}
       <div>
         <StudyHistorySection

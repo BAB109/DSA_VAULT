@@ -3,12 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, Circle, CheckSquare, Square,
   Clock, BookOpen, ChevronRight, Trophy, Zap, Lock,
-  AlertCircle, GraduationCap, Target, Star,
+  AlertCircle, GraduationCap, Target, Star, Code2, GitFork, Lightbulb, Compass
 } from 'lucide-react';
 import { csFundamentalsService } from '../services/csFundamentalsService';
 import { LoadingState, ErrorState } from '../components/States';
-import { Card, CardBody } from '../components/Card';
-
+import { Card, CardBody, CardHeader } from '../components/Card';
 
 // ── Overall progress mini-bar ─────────────────────────────────────────────────
 function MiniProgress({ value, max }) {
@@ -85,6 +84,85 @@ function ChecklistItem({ item, disabled, onToggle }) {
   );
 }
 
+// ── Pedagogical Guide Generator ───────────────────────────────────────────────
+function PedagogicalGuide({ topic }) {
+  const modSeq = topic.module_seq;
+  const isDSA = modSeq === 2 || modSeq === 1;
+  const isOOP = modSeq === 3 || modSeq === 12;
+  const isCoreSystems = modSeq === 4 || modSeq === 5 || modSeq === 6;
+  const isAIML = modSeq === 14;
+
+  if (isDSA) {
+    return (
+      <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/40 to-blue-50/30">
+        <CardBody>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5 mb-2">
+            <Lightbulb size={14} className="text-indigo-600" /> DSA Interview Execution Strategy
+          </h3>
+          <ul className="text-xs text-indigo-950/80 space-y-1.5 list-disc pl-4 leading-relaxed">
+            <li><strong>Clarify Constraints:</strong> Array size $N \le 10^5$, memory limits, potential overflow, and edge cases (empty input, negatives, duplicates).</li>
+            <li><strong>Dry Run First:</strong> Trace with pen & paper using small 3–4 element sample inputs before coding.</li>
+            <li><strong>Complexity Target:</strong> State Time Complexity $O(T)$ and Space Complexity $O(S)$ explicitly. Primary implementations in C++ (Java/Python alternative accepted).</li>
+          </ul>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (isOOP) {
+    return (
+      <Card className="border-blue-100 bg-gradient-to-br from-blue-50/40 to-cyan-50/30">
+        <CardBody>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5 mb-2">
+            <Lightbulb size={14} className="text-blue-600" /> LLD & OOP Design Architecture Focus
+          </h3>
+          <ul className="text-xs text-blue-950/80 space-y-1.5 list-disc pl-4 leading-relaxed">
+            <li><strong>Identify Entities:</strong> Clearly separate data models, services, and interfaces.</li>
+            <li><strong>SOLID Principles:</strong> Enforce Single Responsibility and Dependency Inversion; favor composition over rigid inheritance.</li>
+            <li><strong>Design Patterns:</strong> Relate your implementation to standard creational, structural, or behavioral patterns (Factory, Strategy, Observer).</li>
+          </ul>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (isCoreSystems) {
+    return (
+      <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/40 to-teal-50/30">
+        <CardBody>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 mb-2">
+            <Lightbulb size={14} className="text-emerald-600" /> Systems Core Interview Mastery
+          </h3>
+          <ul className="text-xs text-emerald-950/80 space-y-1.5 list-disc pl-4 leading-relaxed">
+            <li><strong>Precise Terminology:</strong> Explain underlying mechanisms (e.g. context switching, B+ Tree indexing, TCP 3-way handshake).</li>
+            <li><strong>Concurrency & Guarantees:</strong> Identify race conditions, deadlock conditions, and transaction isolation levels.</li>
+            <li><strong>Trade-off Defense:</strong> Be ready to explain latency vs throughput, consistency vs availability tradeoffs.</li>
+          </ul>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (isAIML) {
+    return (
+      <Card className="border-purple-100 bg-gradient-to-br from-purple-50/40 to-pink-50/30">
+        <CardBody>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5 mb-2">
+            <Lightbulb size={14} className="text-purple-600" /> Python & Machine Learning Workflow
+          </h3>
+          <ul className="text-xs text-purple-950/80 space-y-1.5 list-disc pl-4 leading-relaxed">
+            <li><strong>Vectorized Operations:</strong> Prefer NumPy/Pandas vectorized operations over explicit Python loops for performance.</li>
+            <li><strong>Data Leakage Prevention:</strong> Fit data transformers strictly on training sets before transforming validation/test splits.</li>
+            <li><strong>Metric Selection:</strong> Justify choice of loss function vs evaluation metrics (Precision, Recall, ROC-AUC) under class imbalance.</li>
+          </ul>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  return null;
+}
+
 // ── Main topic detail page ────────────────────────────────────────────────────
 export default function CSFundamentalsTopic() {
   const { id } = useParams();
@@ -94,12 +172,10 @@ export default function CSFundamentalsTopic() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [completing, setCompleting] = useState(false);
-  const [completionSuccess, setCompletionSuccess] = useState(null); // { next_topic, curriculum_complete }
+  const [completionSuccess, setCompletionSuccess] = useState(null);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [stats, setStats] = useState(null);
-  // Assessment status: { is_mandatory, has_passed, assessment_required, has_questions }
   const [assessmentStatus, setAssessmentStatus] = useState(null);
-
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,8 +187,8 @@ export default function CSFundamentalsTopic() {
       ]);
       setTopic(topicRes);
       setStats(statsRes);
-      // Load assessment status (non-fatal — don't block the page if it fails)
-      if (topicRes.status === 'active' || topicRes.status === 'completed') {
+      // Load assessment status
+      if (topicRes.status === 'active' || topicRes.status === 'completed' || topicRes.status === 'unlocked') {
         csFundamentalsService.getAssessment(topicRes.id)
           .then((a) => setAssessmentStatus({
             is_mandatory: a.config?.is_mandatory ?? false,
@@ -131,7 +207,6 @@ export default function CSFundamentalsTopic() {
     }
   }, [id]);
 
-
   useEffect(() => {
     load();
     setCompletionSuccess(null);
@@ -148,7 +223,6 @@ export default function CSFundamentalsTopic() {
         ),
       }));
     } catch (e) {
-      // Revert is handled automatically since we didn't optimistically update state yet
       console.error('Checklist toggle failed:', e);
     }
   }, [topic]);
@@ -183,21 +257,24 @@ export default function CSFundamentalsTopic() {
 
   const hasChecklist     = topic.checklist_items && topic.checklist_items.length > 0;
   const allItemsChecked  = hasChecklist && topic.checklist_items.every((ci) => ci.checked);
-  const someItemsChecked = hasChecklist && topic.checklist_items.some((ci) => ci.checked);
   const checkedCount     = hasChecklist ? topic.checklist_items.filter((ci) => ci.checked).length : 0;
   const totalItems       = hasChecklist ? topic.checklist_items.length : 0;
 
   // Assessment gate: mandatory assessment not yet passed blocks completion
-  const assessmentBlocked = isActive && assessmentStatus?.assessment_required === true;
+  const assessmentBlocked = (isActive || topic.status === 'unlocked') && assessmentStatus?.assessment_required === true;
+
+  // Prerequisites check
+  const unmetPrereqs = (topic.prerequisites || []).filter((p) => !p.completed);
+  const prereqBlocked = unmetPrereqs.length > 0;
 
   // Completion button is enabled when:
-  //  - topic is active (not locked or already completed)
-  //  - either no checklist items, or confirmComplete is true (confirmation toggle)
+  //  - topic is active or unlocked (not locked or already completed)
+  //  - prerequisites satisfied
+  //  - either no checklist items, or confirmComplete is true
   //  - mandatory assessment passed (or no mandatory assessment)
-  const canComplete = isActive && !isCompleted && !completing && !assessmentBlocked && (
+  const canComplete = (isActive || topic.status === 'unlocked') && !isCompleted && !completing && !assessmentBlocked && !prereqBlocked && (
     !hasChecklist || confirmComplete
   );
-
 
   return (
     <div className="space-y-5 min-w-0 max-w-3xl">
@@ -272,11 +349,17 @@ export default function CSFundamentalsTopic() {
 
       {/* Locked warning */}
       {isLocked && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
-          <Lock size={18} className="text-amber-600 shrink-0" />
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <Lock size={18} className="text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-900">This topic is locked</p>
-            <p className="text-xs text-amber-700 mt-0.5">Complete your current active topic to unlock this one.</p>
+            <p className="text-sm font-semibold text-amber-900">This topic is currently locked</p>
+            {unmetPrereqs.length > 0 ? (
+              <p className="text-xs text-amber-800 mt-1">
+                You must complete the direct prerequisite topic(s) first: <span className="font-semibold">{unmetPrereqs.map((p) => p.title).join(', ')}</span>.
+              </p>
+            ) : (
+              <p className="text-xs text-amber-700 mt-0.5">Complete earlier curriculum requirements to unlock this topic.</p>
+            )}
           </div>
         </div>
       )}
@@ -289,13 +372,39 @@ export default function CSFundamentalsTopic() {
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Module {topic.module_seq} · {topic.module_title}
               </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                topic.phase === 2
+                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                  : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+              }`}>
+                Phase {topic.phase || 1}: {topic.phase === 2 ? 'Advanced CS & Engineering' : 'Foundations & Essentials'}
+              </span>
+              {topic.stage && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {topic.stage}
+                </span>
+              )}
+              {topic.is_optional && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                  Optional Topic
+                </span>
+              )}
             </div>
+
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{topic.title}</h1>
             {topic.description && (
               <p className="text-sm text-gray-600 mt-2 leading-relaxed">{topic.description}</p>
             )}
-            <div className="flex items-center gap-3 mt-3 flex-wrap">
+
+            <div className="flex items-center gap-3 mt-4 flex-wrap">
               <TopicStatusBadge status={topic.status} />
+
+              {topic.primary_language && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                  <Code2 size={13} /> Primary Language: {topic.primary_language}
+                </span>
+              )}
+
               {topic.est_minutes && (
                 <span className="flex items-center gap-1 text-xs text-gray-500">
                   <Clock size={12} /> ~{topic.est_minutes} min
@@ -310,6 +419,70 @@ export default function CSFundamentalsTopic() {
           </div>
         </div>
       </div>
+
+      {/* Pedagogical Guide Strategy Card */}
+      <PedagogicalGuide topic={topic} />
+
+      {/* Prerequisites and Unlocks Next section */}
+      {(topic.prerequisites?.length > 0 || topic.unlocks_next?.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Prerequisites */}
+          <div className="bg-white border border-gray-200/90 rounded-xl p-4 shadow-2xs">
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <GitFork size={13} className="text-indigo-600" /> Direct Prerequisites
+            </h3>
+            {topic.prerequisites?.length > 0 ? (
+              <div className="space-y-1.5">
+                {topic.prerequisites.map((p) => (
+                  <div
+                    key={p.prerequisite_topic_id}
+                    onClick={() => navigate(`/cs-fundamentals/topics/${p.prerequisite_topic_id}`)}
+                    className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-indigo-50/70 cursor-pointer text-xs transition-colors"
+                  >
+                    <span className="font-medium text-gray-800 truncate mr-2">{p.title}</span>
+                    {p.completed ? (
+                      <span className="shrink-0 text-emerald-600 flex items-center gap-1 font-semibold">
+                        <CheckCircle size={13} /> Completed
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-amber-700 flex items-center gap-1 font-semibold">
+                        <Lock size={13} /> Required
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">No prerequisites required. Foundational entry topic.</p>
+            )}
+          </div>
+
+          {/* Unlocks Next */}
+          <div className="bg-white border border-gray-200/90 rounded-xl p-4 shadow-2xs">
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Compass size={13} className="text-emerald-600" /> Unlocks Next In Path
+            </h3>
+            {topic.unlocks_next?.length > 0 ? (
+              <div className="space-y-1.5">
+                {topic.unlocks_next.map((u) => (
+                  <div
+                    key={u.dependent_topic_id}
+                    onClick={() => navigate(`/cs-fundamentals/topics/${u.dependent_topic_id}`)}
+                    className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-emerald-50/70 cursor-pointer text-xs transition-colors"
+                  >
+                    <span className="font-medium text-gray-800 truncate mr-2">{u.title}</span>
+                    <span className="text-gray-400 shrink-0 flex items-center gap-0.5">
+                      View <ChevronRight size={12} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">Milestone topic or terminal phase node.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Learning objectives */}
       {topic.objectives && (
@@ -353,13 +526,13 @@ export default function CSFundamentalsTopic() {
                 <ChecklistItem
                   key={item.id}
                   item={item}
-                  disabled={isLocked || (isCompleted && !isActive)}
+                  disabled={isLocked}
                   onToggle={handleToggleChecklist}
                 />
               ))}
             </div>
 
-            {hasChecklist && !allItemsChecked && isActive && (
+            {hasChecklist && !allItemsChecked && (isActive || topic.status === 'unlocked') && (
               <p className="text-xs text-amber-600 mt-3 flex items-center gap-1">
                 <AlertCircle size={12} />
                 Check all items to enable completion (or confirm below).
@@ -369,7 +542,7 @@ export default function CSFundamentalsTopic() {
         </Card>
       )}
 
-      {/* ── Knowledge Assessment section ─────────────────────────────────────── */}
+      {/* Knowledge Assessment section */}
       {!isLocked && assessmentStatus?.has_questions && (
         <Card className={assessmentBlocked ? 'border-red-200 ring-1 ring-red-100' : ''}>
           <CardBody>
@@ -454,8 +627,14 @@ export default function CSFundamentalsTopic() {
                 Completed{topic.completed_at ? ` on ${new Date(topic.completed_at).toLocaleDateString()}` : ''}
               </span>
             </div>
-          ) : isActive ? (
+          ) : (isActive || topic.status === 'unlocked') ? (
             <div className="space-y-3">
+              {prereqBlocked && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                  Prerequisites pending: Complete <span className="font-semibold">{unmetPrereqs.map((p) => p.title).join(', ')}</span> before completing this topic.
+                </div>
+              )}
+
               {hasChecklist && !allItemsChecked && (
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div
@@ -483,7 +662,7 @@ export default function CSFundamentalsTopic() {
                     {confirmComplete && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
                   <span className="text-sm text-gray-700 leading-snug select-none" onClick={() => setConfirmComplete((v) => !v)}>
-                    I have studied this topic and am ready to proceed to the next one.
+                    I have studied this topic and am ready to proceed.
                   </span>
                 </label>
               )}
@@ -521,7 +700,7 @@ export default function CSFundamentalsTopic() {
             onClick={() => navigate(`/cs-fundamentals/topics/${topic.prev_topic.id}`)}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            <ArrowLeft size={14} /> Previous
+            <ArrowLeft size={14} /> Previous Topic
           </button>
         ) : (
           <Link
@@ -536,14 +715,14 @@ export default function CSFundamentalsTopic() {
           <button
             onClick={() => navigate(`/cs-fundamentals/topics/${topic.next_topic.id}`)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isCompleted
+              isCompleted || topic.next_topic.status !== 'locked'
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                 : 'border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
             }`}
-            disabled={!isCompleted}
-            title={!isCompleted ? 'Complete this topic to unlock the next one' : ''}
+            disabled={!isCompleted && topic.next_topic.status === 'locked'}
+            title={!isCompleted ? 'Complete prerequisite topics to unlock' : ''}
           >
-            Next <ChevronRight size={14} />
+            Next Topic <ChevronRight size={14} />
           </button>
         )}
       </div>

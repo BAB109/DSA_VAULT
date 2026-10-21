@@ -102,6 +102,95 @@ export const csFundamentalsService = {
   async getAssessmentPassStatus(topicId) {
     return apiClient(`/cs-assessments/topics/${topicId}/pass-status`);
   },
+
+  // ── Placement & Interview Preparation ──────────────────────────────────────
+
+  /** Get structured interview projects */
+  async getPlacementProjects() {
+    return apiClient('/cs-fundamentals/placement/projects');
+  },
+
+  /** Create a structured interview project */
+  async createPlacementProject(data) {
+    return apiClient('/cs-fundamentals/placement/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Update an interview project */
+  async updatePlacementProject(id, data) {
+    return apiClient(`/cs-fundamentals/placement/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Delete an interview project */
+  async deletePlacementProject(id) {
+    return apiClient(`/cs-fundamentals/placement/projects/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /** Get internship and job applications */
+  async getJobApplications() {
+    return apiClient('/cs-fundamentals/placement/applications');
+  },
+
+  /** Create job application */
+  async createJobApplication(data) {
+    return apiClient('/cs-fundamentals/placement/applications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Update job application */
+  async updateJobApplication(id, data) {
+    return apiClient(`/cs-fundamentals/placement/applications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Delete job application */
+  async deleteJobApplication(id) {
+    return apiClient(`/cs-fundamentals/placement/applications/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /** Get mock interview records */
+  async getMockInterviews() {
+    return apiClient('/cs-fundamentals/placement/mock-interviews');
+  },
+
+  /** Record a mock interview */
+  async createMockInterview(data) {
+    return apiClient('/cs-fundamentals/placement/mock-interviews', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Get timed assessment sessions */
+  async getTimedAssessments() {
+    return apiClient('/cs-fundamentals/placement/timed-assessments');
+  },
+
+  /** Record a timed assessment */
+  async createTimedAssessment(data) {
+    return apiClient('/cs-fundamentals/placement/timed-assessments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Get weekly revision plan (weak problems, due reviews, weak assessments, mock action items) */
+  async getWeeklyRevision() {
+    return apiClient('/cs-fundamentals/placement/weekly-revision');
+  },
 };
 
 export default csFundamentalsService;
