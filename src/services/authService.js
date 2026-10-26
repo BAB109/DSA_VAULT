@@ -114,19 +114,34 @@ export const authService = {
    * Calls: GET /api/auth/me
    */
   verifySession: async () => {
-    const session = getSession();
+    let session = getSession();
+
+    // Check if token was passed via URL from the mobile companion app (SSO)
+    if (!session || !session.token) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const ssoToken = urlParams.get('auth_token') || hashParams.get('token');
+
+        if (ssoToken) {
+          session = { token: ssoToken };
+          // Clean the token from address bar immediately for security and clean display
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      } catch {}
+    }
     if (!session || !session.token) return null;
 
     try {
       const data = await apiClient('/auth/me', {
         method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+        },
       });
 
-      return {
-        userId: data.user.id,
-        username: data.user.username,
-        token: session.token,
-      };
+      return _saveSession(data.user, session.token);
     } catch (err) {
       clearSession();
       return null;

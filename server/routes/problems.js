@@ -7,7 +7,7 @@ import {
   DEFAULT_PERIODIC_INTERVAL,
   REVISION_OUTCOMES,
 } from '../services/scheduler.js';
-import { computeUserAnalytics } from '../services/analyticsService.js';
+import { computeUserAnalytics, isSolvedProblem } from '../services/analyticsService.js';
 
 const router = express.Router();
 
@@ -1288,6 +1288,138 @@ router.get('/analytics', authenticateToken, async (req, res) => {
     });
 
     return res.json(analytics);
+  }
+});
+
+// ------------------------------------------------------------------------------
+// GET /api/widget/summary - Lightweight endpoint for Android Home-Screen Widget
+// ------------------------------------------------------------------------------
+router.get('/widget/summary', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const username = req.user.username;
+
+  try {
+    // 1. Fetch user settings for daily goal
+    let dailyGoal = 3;
+    try {
+      const { rows: setRows } = await pool.query(
+        'SELECT daily_problem_goal FROM user_settings WHERE user_id = $1',
+        [userId]
+      );
+      if (setRows.length > 0 && setRows[0].daily_problem_goal) {
+        dailyGoal = Number(setRows[0].daily_problem_goal);
+      }
+    } catch {}
+
+    // 2. Query total, solved, difficulty counts, today's solved count, revisions due
+    const { rows: probRows } = await pool.query(
+      `SELECT
+        COUNT(*)::int AS total_problems,
+        COUNT(CASE WHEN solving_status NOT IN ('Unable To Solve', 'Unsolved') THEN 1 END)::int AS solved_count,
+        COUNT(CASE WHEN difficulty = 'Easy' THEN 1 END)::int AS easy_count,
+        COUNT(CASE WHEN difficulty = 'Medium' THEN 1 END)::int AS medium_count,
+        COUNT(CASE WHEN difficulty = 'Hard' THEN 1 END)::int AS hard_count,
+        COUNT(CASE WHEN solved_at::date = CURRENT_DATE AND solving_status NOT IN ('Unable To Solve', 'Unsolved') THEN 1 END)::int AS today_solved,
+        COUNT(CASE WHEN next_revision_at IS NOT NULL AND next_revision_at <= CURRENT_TIMESTAMP THEN 1 END)::int AS revisions_due
+       FROM problems
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    const stats = probRows[0] || {};
+    const totalProblems = stats.total_problems || 0;
+    const solvedCount = stats.solved_count || 0;
+    const remainingCount = Math.max(0, totalProblems - solvedCount);
+    const todaySolved = stats.today_solved || 0;
+    const revisionsDue = stats.revisions_due || 0;
+    const dailyGoalProgress = Math.min(100, Math.round((todaySolved / Math.max(1, dailyGoal)) * 100));
+
+    // 3. Simple streak calculation from problems & revisions
+    let currentStreak = 0;
+    try {
+      const { rows: solveDates } = await pool.query(
+        `SELECT DISTINCT (solved_at::date)::text AS active_date
+         FROM problems
+         WHERE user_id = $1 AND solving_status NOT IN ('Unable To Solve', 'Unsolved') AND solved_at IS NOT NULL
+         UNION
+         SELECT DISTINCT (r.completed_at::date)::text AS active_date
+         FROM revisions r
+         JOIN problems p ON r.problem_id = p.id
+         WHERE p.user_id = $1 AND r.completed_at IS NOT NULL
+         ORDER BY active_date DESC`,
+        [userId]
+      );
+
+      const activeDates = new Set(solveDates.map((r) => r.active_date));
+      const now = new Date();
+      let checkDate = new Date(now);
+      const todayStr = checkDate.toISOString().split('T')[0];
+      checkDate.setDate(checkDate.getDate() - 1);
+      const yesterdayStr = checkDate.toISOString().split('T')[0];
+
+      let streakDate = activeDates.has(todayStr) ? new Date(now) : (activeDates.has(yesterdayStr) ? checkDate : null);
+      if (streakDate) {
+        while (true) {
+          const dStr = streakDate.toISOString().split('T')[0];
+          if (activeDates.has(dStr)) {
+            currentStreak++;
+            streakDate.setDate(streakDate.getDate() - 1);
+          } else {
+            break;
+          }
+        }
+      }
+    } catch {}
+
+    res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    return res.status(200).json({
+      username,
+      totalProblems,
+      solvedCount,
+      remainingCount,
+      todaySolved,
+      dailyGoal,
+      dailyGoalProgress,
+      currentStreak,
+      revisionsDue,
+      difficultyCounts: {
+        Easy: stats.easy_count || 0,
+        Medium: stats.medium_count || 0,
+        Hard: stats.hard_count || 0,
+      },
+      lastSyncedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Widget summary error:', err);
+    // Memory fallback if DB is offline or table unconfigured
+    const userProblems = Array.from(memoryProblems.values()).filter((p) => p.userId === userId);
+    const solved = userProblems.filter(isSolvedProblem);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todaySolved = solved.filter((p) => {
+      const d = p.solved_at || p.solvingDate;
+      return d && String(d).startsWith(todayStr);
+    }).length;
+    const totalProblems = userProblems.length;
+    const solvedCount = solved.length;
+
+    res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    return res.status(200).json({
+      username,
+      totalProblems,
+      solvedCount,
+      remainingCount: Math.max(0, totalProblems - solvedCount),
+      todaySolved,
+      dailyGoal: 3,
+      dailyGoalProgress: Math.min(100, Math.round((todaySolved / 3) * 100)),
+      currentStreak: 0,
+      revisionsDue: 0,
+      difficultyCounts: {
+        Easy: userProblems.filter((p) => p.difficulty === 'Easy').length,
+        Medium: userProblems.filter((p) => p.difficulty === 'Medium').length,
+        Hard: userProblems.filter((p) => p.difficulty === 'Hard').length,
+      },
+      lastSyncedAt: new Date().toISOString(),
+    });
   }
 });
 

@@ -398,6 +398,8 @@ export default function Dashboard() {
                 <DailyTasksWidget />
               </div>
             );
+
+          case 'timer-and-revision':
             return (
               <div key="timer-and-revision" className="grid grid-cols-1 lg:grid-cols-2 gap-5 min-w-0">
                 <FocusTimerWidget />

@@ -40,7 +40,7 @@ export async function apiClient(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
-  if (token) {
+  if (!headers['Authorization'] && token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
