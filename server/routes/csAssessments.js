@@ -19,10 +19,13 @@ async function getActiveTopicSeq(client, userId) {
   return (rows[0]?.last_completed_seq ?? 0) + 1;
 }
 
-// ── Helper: check if a topic is accessible (active or completed) ──────────────
-async function getTopicAccess(client, userId, topicId) {
-  const activeSeq = await getActiveTopicSeq(client, userId);
+// ── Helper: check if request is from demo account ────────────────────────────
+function isDemoUser(req) {
+  return (req.user?.username || '').toLowerCase() === 'demo';
+}
 
+// ── Helper: check if a topic is accessible (active or completed) ──────────────
+async function getTopicAccess(client, userId, topicId, isDemo = false) {
   const { rows } = await client.query(
     `SELECT t.id, t.global_seq,
             COALESCE(ucp.completed, FALSE) AS completed
@@ -35,6 +38,19 @@ async function getTopicAccess(client, userId, topicId) {
   if (rows.length === 0) return { found: false };
 
   const topic = rows[0];
+
+  if (isDemo) {
+    return {
+      found: true,
+      topic,
+      isActive: true,
+      isCompleted: topic.completed,
+      accessible: true,
+      activeSeq: topic.global_seq,
+    };
+  }
+
+  const activeSeq = await getActiveTopicSeq(client, userId);
   const isActive = topic.global_seq === activeSeq;
   const isCompleted = topic.completed;
   const accessible = isActive || isCompleted;
@@ -65,7 +81,7 @@ router.get('/topics/:topicId/assessment', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const access = await getTopicAccess(client, userId, topicId);
+      const access = await getTopicAccess(client, userId, topicId, isDemoUser(req));
       if (!access.found) {
         return res.status(404).json({ error: 'NOT_FOUND', message: 'Topic not found.' });
       }
@@ -146,7 +162,7 @@ router.post('/topics/:topicId/assessment', async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      const access = await getTopicAccess(client, userId, topicId);
+      const access = await getTopicAccess(client, userId, topicId, isDemoUser(req));
       if (!access.found) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'NOT_FOUND', message: 'Topic not found.' });
@@ -309,7 +325,7 @@ router.get('/topics/:topicId/assessment/attempts', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const access = await getTopicAccess(client, userId, topicId);
+      const access = await getTopicAccess(client, userId, topicId, isDemoUser(req));
       if (!access.found) {
         return res.status(404).json({ error: 'NOT_FOUND', message: 'Topic not found.' });
       }
@@ -358,6 +374,10 @@ router.get('/topics/:topicId/pass-status', async (req, res) => {
   const topicId = parseInt(req.params.topicId, 10);
   if (!topicId || isNaN(topicId)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid topic id.' });
+  }
+
+  if (isDemoUser(req)) {
+    return res.json({ is_mandatory: false, has_passed: true, assessment_required: false });
   }
 
   try {

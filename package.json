@@ -12,6 +12,7 @@
     "db:migrate": "node db/migrate.js",
     "server": "node server/server.js",
     "test": "node server/test-integration.js",
+    "test:widget": "node server/test-widget.js",
     "test:all": "node server/test-scheduler.js && node server/test-analytics.js && node server/test-calendar-goals.js && node server/test-integration.js && node server/test-security-prerelease.js"
   },
   "dependencies": {

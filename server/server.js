@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { validateEnv } from './config/env.js';
 import { logger, requestLogger } from './logger.js';
 import { pool } from '../db/pool.js';
-import authRoutes from './routes/auth.js';
+import authRoutes, { ensureDemoUser } from './routes/auth.js';
 import problemsRoutes from './routes/problems.js';
 import csFundamentalsRoutes from './routes/csFundamentals.js';
 import csAssessmentsRoutes from './routes/csAssessments.js';
@@ -125,6 +125,7 @@ export default app;
 let server;
 
 if (process.env.NODE_ENV !== 'test') {
+  ensureDemoUser().catch(() => {});
   server = app.listen(PORT, '0.0.0.0', () => {
     logger.info(`📡 DSA Vault Backend Server running on port ${PORT}`, {
       port: PORT,

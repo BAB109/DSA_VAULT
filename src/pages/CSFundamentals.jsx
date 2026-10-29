@@ -5,6 +5,7 @@ import {
   Trophy, Target, Clock, BarChart2, ArrowRight, GraduationCap,
   Layers, Star, Flame, CalendarDays, Briefcase, Code, Sparkles, AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { csFundamentalsService } from '../services/csFundamentalsService';
 import { LoadingState, ErrorState, EmptyState } from '../components/States';
 import { Card, CardHeader, CardBody } from '../components/Card';
@@ -33,18 +34,18 @@ function LanguageBadge({ language }) {
 }
 
 // ── Status badge ────────────────────────────────────────────────────────────
-function StatusBadge({ status, isOptional }) {
+function StatusBadge({ status, isOptional, isDemo }) {
   const map = {
     completed: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     active:    'bg-indigo-100 text-indigo-700 border border-indigo-200',
     unlocked:  'bg-indigo-100 text-indigo-700 border border-indigo-200',
-    locked:    'bg-gray-100 text-gray-500 border border-gray-200',
+    locked:    isDemo ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-500 border border-gray-200',
   };
   const label = {
     completed: '✓ Completed',
     active:    '▶ In Progress',
     unlocked:  '▶ Unlocked',
-    locked:    '🔒 Locked',
+    locked:    isDemo ? '▶ Unlocked (Demo)' : '🔒 Locked',
   };
   return (
     <div className="flex items-center gap-1">
@@ -74,10 +75,10 @@ function ProgressBar({ value, max, color = 'bg-indigo-600' }) {
 }
 
 // ── Topic row inside an expanded section ─────────────────────────────────────
-function TopicRow({ topic, onOpen }) {
+function TopicRow({ topic, onOpen, isDemo }) {
   const isActive    = topic.status === 'active';
   const isCompleted = topic.status === 'completed';
-  const isLocked    = topic.status === 'locked';
+  const isLocked    = !isDemo && topic.status === 'locked';
 
   // Check prerequisites
   const unmetPrereqs = (topic.prerequisites || []).filter((p) => !p.completed);
@@ -89,13 +90,15 @@ function TopicRow({ topic, onOpen }) {
           ? 'opacity-70 cursor-not-allowed bg-gray-50/50'
           : 'hover:bg-indigo-50/70 cursor-pointer'
       } ${isActive ? 'bg-indigo-50 ring-1 ring-indigo-200' : ''}`}
-      onClick={() => !isLocked && onOpen(topic.id)}
+      onClick={() => (!isLocked || isDemo) && onOpen(topic.id)}
     >
       <div className="shrink-0">
         {isCompleted ? (
           <CheckCircle size={18} className="text-emerald-500" />
         ) : isActive ? (
           <Zap size={18} className="text-indigo-600" />
+        ) : isDemo ? (
+          <BookOpen size={18} className="text-indigo-500" />
         ) : (
           <Lock size={18} className="text-gray-400" />
         )}
@@ -123,7 +126,7 @@ function TopicRow({ topic, onOpen }) {
             </span>
           )}
 
-          {isLocked && unmetPrereqs.length > 0 && (
+          {isLocked && unmetPrereqs.length > 0 && !isDemo && (
             <span className="text-[11px] text-amber-700 flex items-center gap-1">
               <AlertCircle size={11} className="shrink-0" />
               Requires: {unmetPrereqs.map((p) => p.title).join(', ')}
@@ -133,15 +136,15 @@ function TopicRow({ topic, onOpen }) {
       </div>
 
       <div className="shrink-0 flex items-center gap-2">
-        <StatusBadge status={topic.status} isOptional={topic.is_optional} />
-        {!isLocked && <ArrowRight size={14} className="text-gray-400" />}
+        <StatusBadge status={topic.status} isOptional={topic.is_optional} isDemo={isDemo} />
+        {(!isLocked || isDemo) && <ArrowRight size={14} className="text-gray-400" />}
       </div>
     </div>
   );
 }
 
 // ── Expandable section ────────────────────────────────────────────────────────
-function SectionBlock({ section, onOpenTopic }) {
+function SectionBlock({ section, onOpenTopic, isDemo }) {
   const [open, setOpen] = useState(
     section.topics.some((t) => t.status === 'active')
   );
@@ -165,7 +168,7 @@ function SectionBlock({ section, onOpenTopic }) {
       {open && (
         <div className="divide-y divide-gray-50 px-2 py-1">
           {section.topics.map((topic) => (
-            <TopicRow key={topic.id} topic={topic} onOpen={onOpenTopic} />
+            <TopicRow key={topic.id} topic={topic} onOpen={onOpenTopic} isDemo={isDemo} />
           ))}
         </div>
       )}
@@ -174,7 +177,7 @@ function SectionBlock({ section, onOpenTopic }) {
 }
 
 // ── Expandable module card ────────────────────────────────────────────────────
-function ModuleCard({ mod, onOpenTopic }) {
+function ModuleCard({ mod, onOpenTopic, isDemo }) {
   const [open, setOpen] = useState(
     mod.sections.some((s) => s.topics.some((t) => t.status === 'active'))
   );
@@ -228,7 +231,7 @@ function ModuleCard({ mod, onOpenTopic }) {
       {open && (
         <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
           {mod.sections.map((sec) => (
-            <SectionBlock key={sec.id} section={sec} onOpenTopic={onOpenTopic} />
+            <SectionBlock key={sec.id} section={sec} onOpenTopic={onOpenTopic} isDemo={isDemo} />
           ))}
         </div>
       )}
@@ -238,12 +241,15 @@ function ModuleCard({ mod, onOpenTopic }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function CSFundamentals() {
+  const { session } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pageView, setPageView] = useState('curriculum'); // 'curriculum' | 'placement'
   const [phaseFilter, setPhaseFilter] = useState('all'); // 'all' | 'phase1' | 'phase2'
   const navigate = useNavigate();
+
+  const isDemo = session?.username?.toLowerCase() === 'demo' || Boolean(data?.curriculum?.is_demo);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -361,6 +367,21 @@ export default function CSFundamentals() {
         <PlacementInterviewCenter onOpenTopic={handleOpenTopic} />
       ) : (
         <>
+          {/* Demo account exploration banner */}
+          {isDemo && (
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl flex items-center gap-3">
+              <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                <Sparkles size={18} className="text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-blue-900">Demo Account — Unrestricted Curriculum Access</p>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  All 14 modules and 169 curriculum topics are unlocked for exploration. Feel free to browse, study, inspect checklists, and take assessments across any topic.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Today's Learning quick-access banner */}
           <div
             className="flex items-center justify-between gap-4 px-5 py-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl cursor-pointer hover:from-orange-100 hover:to-amber-100 transition-colors"
@@ -593,7 +614,7 @@ export default function CSFundamentals() {
 
             <div className="space-y-4">
               {filteredModules.map((mod) => (
-                <ModuleCard key={mod.id} mod={mod} onOpenTopic={handleOpenTopic} />
+                <ModuleCard key={mod.id} mod={mod} onOpenTopic={handleOpenTopic} isDemo={isDemo} />
               ))}
             </div>
           </div>

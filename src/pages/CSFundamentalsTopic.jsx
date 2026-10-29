@@ -3,8 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, Circle, CheckSquare, Square,
   Clock, BookOpen, ChevronRight, Trophy, Zap, Lock,
-  AlertCircle, GraduationCap, Target, Star, Code2, GitFork, Lightbulb, Compass
+  AlertCircle, GraduationCap, Target, Star, Code2, GitFork, Lightbulb, Compass, Sparkles
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { csFundamentalsService } from '../services/csFundamentalsService';
 import { LoadingState, ErrorState } from '../components/States';
 import { Card, CardBody, CardHeader } from '../components/Card';
@@ -26,7 +27,7 @@ function MiniProgress({ value, max }) {
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
-function TopicStatusBadge({ status }) {
+function TopicStatusBadge({ status, isDemo }) {
   if (status === 'completed') {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
@@ -38,6 +39,13 @@ function TopicStatusBadge({ status }) {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
         <Zap size={12} /> In Progress
+      </span>
+    );
+  }
+  if (isDemo) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+        <BookOpen size={12} /> Unlocked (Demo)
       </span>
     );
   }
@@ -251,28 +259,31 @@ export default function CSFundamentalsTopic() {
   if (error)   return <ErrorState message={error} onRetry={load} />;
   if (!topic)  return null;
 
+  const { session } = useAuth();
+  const isDemo = session?.username?.toLowerCase() === 'demo' || Boolean(topic?.is_demo);
+
   const isActive    = topic.status === 'active';
   const isCompleted = topic.status === 'completed';
-  const isLocked    = topic.status === 'locked';
+  const isLocked    = !isDemo && topic.status === 'locked';
 
   const hasChecklist     = topic.checklist_items && topic.checklist_items.length > 0;
   const allItemsChecked  = hasChecklist && topic.checklist_items.every((ci) => ci.checked);
   const checkedCount     = hasChecklist ? topic.checklist_items.filter((ci) => ci.checked).length : 0;
   const totalItems       = hasChecklist ? topic.checklist_items.length : 0;
 
-  // Assessment gate: mandatory assessment not yet passed blocks completion
-  const assessmentBlocked = (isActive || topic.status === 'unlocked') && assessmentStatus?.assessment_required === true;
+  // Assessment gate: mandatory assessment not yet passed blocks completion (bypassed for demo users)
+  const assessmentBlocked = !isDemo && (isActive || topic.status === 'unlocked') && assessmentStatus?.assessment_required === true;
 
-  // Prerequisites check
+  // Prerequisites check (bypassed for demo users)
   const unmetPrereqs = (topic.prerequisites || []).filter((p) => !p.completed);
-  const prereqBlocked = unmetPrereqs.length > 0;
+  const prereqBlocked = !isDemo && unmetPrereqs.length > 0;
 
   // Completion button is enabled when:
-  //  - topic is active or unlocked (not locked or already completed)
-  //  - prerequisites satisfied
+  //  - topic is active or unlocked (or demo mode)
+  //  - prerequisites satisfied (or demo mode)
   //  - either no checklist items, or confirmComplete is true
-  //  - mandatory assessment passed (or no mandatory assessment)
-  const canComplete = (isActive || topic.status === 'unlocked') && !isCompleted && !completing && !assessmentBlocked && !prereqBlocked && (
+  //  - mandatory assessment passed (or demo mode)
+  const canComplete = (isDemo || isActive || topic.status === 'unlocked') && !isCompleted && !completing && !assessmentBlocked && !prereqBlocked && (
     !hasChecklist || confirmComplete
   );
 
@@ -348,7 +359,7 @@ export default function CSFundamentalsTopic() {
       )}
 
       {/* Locked warning */}
-      {isLocked && (
+      {isLocked && !isDemo && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
           <Lock size={18} className="text-amber-600 shrink-0 mt-0.5" />
           <div>
@@ -360,6 +371,19 @@ export default function CSFundamentalsTopic() {
             ) : (
               <p className="text-xs text-amber-700 mt-0.5">Complete earlier curriculum requirements to unlock this topic.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Demo account exploration banner */}
+      {isDemo && (
+        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl flex items-center gap-3">
+          <Sparkles size={18} className="text-blue-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-blue-900">Demo Account Exploration Mode</p>
+            <p className="text-[11px] text-blue-700 mt-0.5">
+              All prerequisites and sequential locking constraints are bypassed for this demo session so you can preview, study, and navigate any topic.
+            </p>
           </div>
         </div>
       )}
@@ -397,7 +421,7 @@ export default function CSFundamentalsTopic() {
             )}
 
             <div className="flex items-center gap-3 mt-4 flex-wrap">
-              <TopicStatusBadge status={topic.status} />
+              <TopicStatusBadge status={topic.status} isDemo={isDemo} />
 
               {topic.primary_language && (
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
@@ -715,12 +739,12 @@ export default function CSFundamentalsTopic() {
           <button
             onClick={() => navigate(`/cs-fundamentals/topics/${topic.next_topic.id}`)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isCompleted || topic.next_topic.status !== 'locked'
+              isDemo || isCompleted || topic.next_topic.status !== 'locked'
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                 : 'border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
             }`}
-            disabled={!isCompleted && topic.next_topic.status === 'locked'}
-            title={!isCompleted ? 'Complete prerequisite topics to unlock' : ''}
+            disabled={!isDemo && !isCompleted && topic.next_topic.status === 'locked'}
+            title={!isDemo && !isCompleted ? 'Complete prerequisite topics to unlock' : ''}
           >
             Next Topic <ChevronRight size={14} />
           </button>

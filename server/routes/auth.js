@@ -18,13 +18,28 @@ const memoryUsers = new Map([
   [
     'demo',
     {
-      id: 'u1-mock-id',
+      id: '00000000-0000-0000-0000-000000000001',
       username: 'demo',
       passwordHash: bcrypt.hashSync('demo1234', 10),
       created_at: new Date().toISOString(),
     },
   ],
 ]);
+
+// Helper to ensure demo user exists in PostgreSQL with valid UUID
+export async function ensureDemoUser() {
+  try {
+    const hash = bcrypt.hashSync('demo1234', 10);
+    await pool.query(
+      `INSERT INTO users (id, username, password_hash)
+       VALUES ('00000000-0000-0000-0000-000000000001', 'demo', $1)
+       ON CONFLICT (username) DO UPDATE SET password_hash = $1`,
+      [hash]
+    );
+  } catch (err) {
+    // Non-fatal if DB not yet connected or migrating
+  }
+}
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
@@ -222,6 +237,30 @@ router.post('/login', authLimiter, async (req, res) => {
     }
 
     // Fallback to in-memory store if not found or DB not available
+    // Special auto-seed for standard demo account to ensure it exists in PostgreSQL
+    if (!user && lowerUsername === 'demo') {
+      try {
+        const hash = bcrypt.hashSync('demo1234', 10);
+        const { rows } = await pool.query(
+          `INSERT INTO users (id, username, password_hash)
+           VALUES ('00000000-0000-0000-0000-000000000001', 'demo', $1)
+           ON CONFLICT (username) DO UPDATE SET password_hash = $1
+           RETURNING id, username, password_hash, created_at`,
+          [hash]
+        );
+        if (rows.length > 0) {
+          user = {
+            id: rows[0].id,
+            username: rows[0].username,
+            passwordHash: rows[0].password_hash,
+            created_at: rows[0].created_at,
+          };
+        }
+      } catch (insertErr) {
+        // Fall back to in-memory store
+      }
+    }
+
     if (!user && memoryUsers.has(lowerUsername)) {
       user = memoryUsers.get(lowerUsername);
     }

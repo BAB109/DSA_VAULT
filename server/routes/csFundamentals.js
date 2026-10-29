@@ -7,6 +7,12 @@ const router = express.Router();
 // ── All routes require authentication ─────────────────────────────────────────
 router.use(authenticateToken);
 
+// ── Helper: check if the request is from the demo account ─────────────────────
+function isDemoUser(req) {
+  const username = (req.user?.username || '').toLowerCase();
+  return username === 'demo';
+}
+
 // ── Helper: get the user's recommended active topic ──────────────────────────
 // Finds the first incomplete topic (prioritizing Phase 1, then lowest global_seq)
 // whose prerequisites are all completed.
@@ -51,6 +57,7 @@ async function getActiveTopicSeq(client, userId) {
 // Returns the full curriculum tree with user progress overlaid.
 router.get('/curriculum', async (req, res) => {
   const userId = req.user.id;
+  const isDemo = isDemoUser(req);
   try {
     const client = await pool.connect();
     try {
@@ -152,6 +159,9 @@ router.get('/curriculum', async (req, res) => {
         let status;
         if (topic.completed) {
           status = 'completed';
+        } else if (isDemo) {
+          // Demo account has unrestricted access to all topics across all modules
+          status = (topic.global_seq === (activeSeq || 1)) ? 'active' : 'unlocked';
         } else if (allPrereqsMet) {
           status = (topic.global_seq === activeSeq) ? 'active' : 'unlocked';
         } else {
@@ -211,6 +221,7 @@ router.get('/curriculum', async (req, res) => {
 
       return res.json({
         modules: curriculumList,
+        is_demo: isDemo,
         stats: {
           total_modules: modules.length,
           total_topics: totalTopics,
@@ -337,6 +348,7 @@ router.get('/active-topic', async (req, res) => {
 // ── GET /api/cs-fundamentals/topics/:id ───────────────────────────────────────
 router.get('/topics/:id', async (req, res) => {
   const userId = req.user.id;
+  const isDemo = isDemoUser(req);
   const topicId = parseInt(req.params.id, 10);
 
   if (!topicId || isNaN(topicId)) {
@@ -391,6 +403,9 @@ router.get('/topics/:id', async (req, res) => {
       let status;
       if (topic.completed) {
         status = 'completed';
+      } else if (isDemo) {
+        // Demo account: all topics are accessible & unlocked
+        status = (topic.global_seq === (activeSeq || 1)) ? 'active' : 'unlocked';
       } else if (allPrereqsMet) {
         status = (topic.global_seq === activeSeq) ? 'active' : 'unlocked';
       } else {
@@ -451,6 +466,8 @@ router.get('/topics/:id', async (req, res) => {
         completed: topic.completed,
         completed_at: topic.completed_at,
         status,
+        is_demo: isDemo,
+        prerequisites_satisfied: isDemo || allPrereqsMet,
         checklist_items: items,
         prev_topic: prevRows[0] || null,
         next_topic: nextRows[0] || null,
@@ -471,6 +488,7 @@ router.get('/topics/:id', async (req, res) => {
 // Toggle a checklist item. Allowed on unlocked or completed topics.
 router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
   const userId = req.user.id;
+  const isDemo = isDemoUser(req);
   const topicId = parseInt(req.params.topicId, 10);
   const itemId = parseInt(req.params.itemId, 10);
 
@@ -501,8 +519,8 @@ router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
         [userId, topicId]
       )).rows[0]?.completed ?? false;
 
-      // If not completed, verify prerequisites are met
-      if (!isCompleted) {
+      // If not completed (and not demo), verify prerequisites are met
+      if (!isCompleted && !isDemo) {
         const { rows: missingPrereqs } = await client.query(
           `SELECT pt.title
            FROM cs_topic_prerequisites p
@@ -560,6 +578,7 @@ router.post('/topics/:topicId/checklist/:itemId', async (req, res) => {
 // Mark an unlocked topic as complete. Enforces prerequisite satisfaction & assessment gates.
 router.post('/topics/:id/complete', async (req, res) => {
   const userId = req.user.id;
+  const isDemo = isDemoUser(req);
   const topicId = parseInt(req.params.id, 10);
 
   if (!topicId || isNaN(topicId)) {
@@ -596,44 +615,48 @@ router.post('/topics/:id/complete', async (req, res) => {
         });
       }
 
-      // ── Prerequisite gate: verify all prerequisites are completed ──────────
-      const { rows: missingPrereqs } = await client.query(
-        `SELECT pt.id, pt.title, pt.global_seq
-         FROM cs_topic_prerequisites p
-         JOIN cs_topics pt ON pt.id = p.prereq_topic_id
-         LEFT JOIN user_cs_progress ucp ON ucp.topic_id = p.prereq_topic_id AND ucp.user_id = $1 AND ucp.completed = TRUE
-         WHERE p.topic_id = $2 AND (ucp.completed IS NULL OR ucp.completed = FALSE)`,
-        [userId, topicId]
-      );
-      if (missingPrereqs.length > 0) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({
-          error: 'PREREQUISITES_NOT_MET',
-          message: `Cannot complete topic until its prerequisites are completed: ${missingPrereqs.map((p) => p.title).join(', ')}.`,
-          missing_prerequisites: missingPrereqs,
-        });
-      }
-
-      // ── Assessment gate: if mandatory assessment exists and user hasn't passed, block ──
-      const { rows: assessCfgRows } = await client.query(
-        `SELECT is_mandatory, passing_score FROM cs_topic_assessment_config WHERE topic_id = $1`,
-        [topicId]
-      );
-      if (assessCfgRows[0]?.is_mandatory) {
-        const { rows: passRows } = await client.query(
-          `SELECT EXISTS(
-             SELECT 1 FROM user_cs_assessment_attempts
-             WHERE user_id = $1 AND topic_id = $2 AND passed = TRUE
-           ) AS has_passed`,
+      // ── Prerequisite gate: verify all prerequisites are completed (bypassed for demo user) ──────────
+      if (!isDemo) {
+        const { rows: missingPrereqs } = await client.query(
+          `SELECT pt.id, pt.title, pt.global_seq
+           FROM cs_topic_prerequisites p
+           JOIN cs_topics pt ON pt.id = p.prereq_topic_id
+           LEFT JOIN user_cs_progress ucp ON ucp.topic_id = p.prereq_topic_id AND ucp.user_id = $1 AND ucp.completed = TRUE
+           WHERE p.topic_id = $2 AND (ucp.completed IS NULL OR ucp.completed = FALSE)`,
           [userId, topicId]
         );
-        if (!passRows[0].has_passed) {
+        if (missingPrereqs.length > 0) {
           await client.query('ROLLBACK');
           return res.status(403).json({
-            error: 'ASSESSMENT_REQUIRED',
-            message: `You must pass the knowledge assessment (${assessCfgRows[0].passing_score}% or above) before completing this topic.`,
-            passing_score: assessCfgRows[0].passing_score,
+            error: 'PREREQUISITES_NOT_MET',
+            message: `Cannot complete topic until its prerequisites are completed: ${missingPrereqs.map((p) => p.title).join(', ')}.`,
+            missing_prerequisites: missingPrereqs,
           });
+        }
+      }
+
+      // ── Assessment gate: if mandatory assessment exists and user hasn't passed, block (bypassed for demo user) ──
+      if (!isDemo) {
+        const { rows: assessCfgRows } = await client.query(
+          `SELECT is_mandatory, passing_score FROM cs_topic_assessment_config WHERE topic_id = $1`,
+          [topicId]
+        );
+        if (assessCfgRows[0]?.is_mandatory) {
+          const { rows: passRows } = await client.query(
+            `SELECT EXISTS(
+               SELECT 1 FROM user_cs_assessment_attempts
+               WHERE user_id = $1 AND topic_id = $2 AND passed = TRUE
+             ) AS has_passed`,
+            [userId, topicId]
+          );
+          if (!passRows[0].has_passed) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({
+              error: 'ASSESSMENT_REQUIRED',
+              message: `You must pass the knowledge assessment (${assessCfgRows[0].passing_score}% or above) before completing this topic.`,
+              passing_score: assessCfgRows[0].passing_score,
+            });
+          }
         }
       }
 
