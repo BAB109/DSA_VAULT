@@ -5,7 +5,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com/)
 
-**DSA Vault** is a full-stack platform designed for software engineers and computer science students to systematically record, review, and master data structures, algorithms, and core computer science fundamentals. It combines an engineering-grade **DSA problem journal** and automated **spaced-repetition scheduler** with a comprehensive **CS Fundamentals Learning Path**, **Daily Learning Experience**, and **Server-Evaluated Knowledge Assessments**.
+**DSA Vault** is a full-stack platform designed for software engineers and computer science students to systematically record, review, and master data structures, algorithms, and core computer science fundamentals. It combines an engineering-grade **DSA problem journal** and automated **spaced-repetition scheduler** with a comprehensive **CS Fundamentals Learning Path**, **Daily Learning Experience**, **Server-Evaluated Knowledge Assessments**, and an in-app **Productivity Widget Suite** — all with an optional **Android home-screen companion widget**.
 
 ---
 
@@ -14,10 +14,11 @@
 1. [Features](#1-features)
    * [DSA Problem Solving Journal](#-problem-solving-journal)
    * [Spaced-Repetition Revision Center](#-spaced-repetition-revision-center)
-   * [CS Fundamentals Learning Path](#-cs-fundamentals-learning-path)
+   * [CS Fundamentals Learning Path](#-cs-fundamentals--placement-preparation-curriculum)
    * [Daily Learning & Streak System](#-daily-learning--streak-system)
    * [Topic Knowledge Assessments](#-topic-knowledge-assessments)
    * [Dashboard, Heatmap & Analytics](#-dashboard-heatmap--analytics)
+   * [Floating Productivity Widget Suite](#-floating-productivity-widget-suite)
    * [Enterprise-Grade Security](#-enterprise-grade-security)
 2. [Technology Stack](#2-technology-stack)
 3. [Architecture](#3-architecture)
@@ -28,8 +29,9 @@
 8. [Running Tests](#8-running-tests)
 9. [Production Build](#9-production-build)
 10. [Deployment Instructions (Render / Cloud)](#10-deployment-instructions-render--cloud)
-11. [Database Backup & Disaster Recovery](#11-database-backup--disaster-recovery)
-12. [Known Limitations & Roadmap](#12-known-limitations--roadmap)
+11. [Android Companion Widget](#11-android-companion-widget)
+12. [Database Backup & Disaster Recovery](#12-database-backup--disaster-recovery)
+13. [Known Limitations & Roadmap](#13-known-limitations--roadmap)
 
 ---
 
@@ -97,6 +99,19 @@ Runs continuously in parallel with the curriculum—learners can prepare for hir
 * **Analytical Visualizations:** Recharts-powered graphs for 7-day/30-day activity trends, difficulty breakdown, topic-wise competency, and mistake distribution.
 * **Timezone Awareness:** All calendar dates, streak calculations, and goal progress respect the user's configured timezone.
 
+### 🧩 Floating Productivity Widget Suite
+A persistent, collapsible floating widget docked in the bottom-right corner of every protected page — accessible at a single click without navigating away from your current work.
+
+* **Tasks Tab:** Create, complete, and track daily micro-tasks (stored in `localStorage`). Displays a live `done / total` counter on the launcher button.
+* **Timer Tab:** A global persist-across-navigation focus timer backed by wall-clock tracking to prevent browser tab-throttling drift. Supports:
+  * *Countdown mode* (default 25 min, configurable) with chime alert on completion.
+  * *Stopwatch mode* for open-ended tracking.
+  * Quick **Log Solve** button — pauses the timer and pre-fills the elapsed minutes into the Add Problem form.
+* **Cheat Sheet Tab:** One-click copy of common algorithm boilerplate templates (Binary Search, BFS Level Order, and more).
+* **Jump Tab:** Instant navigation shortcuts to Log Problem, Revision Center, and Problem Library.
+* **Standalone Widget Page (`/widget/tasks`):** Full-screen `DailyTasksWidget` with a week calendar view, task categories, priority levels, and a popout option to open the widget in its own browser window — ideal for use alongside an IDE or online judge.
+* **Timer Context:** The timer state (`TimerContext`) is shared across the entire app via React Context so the floating widget, the standalone page, and the Add Problem form all share one consistent running clock.
+
 ### 🛡️ Enterprise-Grade Security
 * **Bcrypt Password Hashing:** Salt factor of 12 with dummy comparison to mitigate side-channel timing attacks.
 * **Stateless JWT Authentication:** Bearer tokens with expiration validation.
@@ -104,6 +119,7 @@ Runs continuously in parallel with the curriculum—learners can prepare for hir
 * **Protocol & Input Sanitization:** Rejects non-HTTP(S) schemes, disallows `javascript:`/`data:` payloads, and restricts notes URLs to Google Drive/Docs domains.
 * **SQL Injection Resistance:** Parameterized queries across all database operations.
 * **Rate Limiting:** Protects registration and login endpoints against brute-force attacks.
+* **Demo User Provisioning:** A sandboxed demo account is auto-provisioned at startup (`ensureDemoUser`) so evaluators can explore the platform without registering.
 
 ---
 
@@ -115,6 +131,7 @@ Runs continuously in parallel with the curriculum—learners can prepare for hir
 | **Backend** | Node.js (ES Modules), Express 5, bcrypt, jsonwebtoken, cors, express-rate-limit |
 | **Database** | PostgreSQL 14+ via `pg` connection pool with TLS/SSL support |
 | **Tooling & CI** | Oxlint, Vite Production Bundler, Native Node.js Test Harness |
+| **Android** | Kotlin, Jetpack Compose, Jetpack Glance (AppWidget), WorkManager, OkHttp, DataStore |
 
 ---
 
@@ -202,7 +219,7 @@ CLIENT_URL=http://localhost:5173
 ```
 
 ### Step 4: Run Versioned Database Migrations
-Apply all schema migrations (including CS Fundamentals, Daily Learning, and Assessment banks):
+Apply all schema migrations (including CS Fundamentals, Daily Learning, Assessment banks, and demo user seed):
 ```bash
 npm run db:migrate
 ```
@@ -217,6 +234,8 @@ In Terminal 2 (Vite Frontend):
 npm run dev
 ```
 Open **[http://localhost:5173](http://localhost:5173)** in your browser.
+
+> **Demo Account:** A sandboxed demo user is auto-provisioned on startup. Check your `.env.example` for the credentials or the server logs for the generated username/password.
 
 ---
 
@@ -234,7 +253,7 @@ Open **[http://localhost:5173](http://localhost:5173)** in your browser.
 | `PGPASSWORD` | No | `null` | Database password. |
 | `PGSSL` | No | `false` | Enable TLS (`true`/`false`). Auto-detected for cloud hosts. |
 | `PGSSL_REJECT_UNAUTHORIZED` | No | `false` | Verify CA certificate chain. Set to `false` for cloud self-signed certs. |
-| `JWT_SECRET` | **Yes (in prod)** | *Fallback* | Secret key for signing JWTs. Must be $\ge$ 32 characters in production. |
+| `JWT_SECRET` | **Yes (in prod)** | *Fallback* | Secret key for signing JWTs. Must be ≥ 32 characters in production. |
 | `JWT_EXPIRES_IN` | No | `7d` | Lifespan of issued authentication tokens. |
 | `CLIENT_URL` | Recommended | `null` | Comma-separated list of permitted CORS frontend origins. |
 | `REQUIRE_DB` | No | `false` | When `true`, `/api/ready` returns 503 if PostgreSQL is disconnected. |
@@ -256,6 +275,7 @@ DSA Vault utilizes **versioned, forward-only SQL migrations** tracked in the `sc
 7. `007_cs_daily_learning.sql` — Study activity log table (`user_cs_study_log`), daily checklist target setting, and learning timezone support.
 8. `008_cs_assessments.sql` — Topic assessment question bank (`cs_assessment_questions`), topic assessment configurations (`cs_topic_assessment_config`), attempt history records (`user_cs_assessment_attempts`, `user_cs_assessment_answers`), and question bank seeds.
 9. `009_curriculum_reorganization.sql` — Curriculum reorganization into Phase 1 & 2, DSA Stages A–F, Primary Languages (C++, Python, SQL, JS), prerequisite dependency DAG (`cs_topic_prerequisites`), parallel placement preparation schema (`user_interview_projects`, `user_job_applications`, `user_mock_interviews`, `user_timed_assessments`), and new foundational topics (Bit Manipulation, Python for Data Work, Math & Stats for ML).
+10. `010_seed_demo_user.sql` — Seeds a sandboxed demo account for evaluators to explore the platform without registering.
 
 ### Running Migrations
 ```bash
@@ -327,6 +347,7 @@ Individual test suites:
 * `node server/test-calendar-goals.js` — Verifies 52-week activity calendar, daily goals, and timezone calculation.
 * `node server/test-integration.js` — Verifies authentication, problem CRUD, multi-topic assignment, and notes links.
 * `node server/test-security-prerelease.js` — Verifies JWT verification, input bounds, scheme rejection, and IDOR isolation.
+* `node server/test-widget.js` — Verifies the widget summary API endpoint (problem counts, streak, revision metrics).
 
 ---
 
@@ -376,7 +397,35 @@ DSA Vault serves both the React client and Express API from a single container o
 
 ---
 
-## 11. Database Backup & Disaster Recovery
+## 11. Android Companion Widget
+
+An optional native Android companion app provides a home-screen widget that displays your DSA Vault stats at a glance — no browser required.
+
+> Full build & setup instructions are in [`android-companion/README.md`](android-companion/README.md).
+
+### What It Shows
+* Total problems solved, problems remaining, today's solved count, and current streak.
+* Daily goal progress bar and difficulty breakdown (Easy / Medium / Hard) in expanded layouts.
+* Revisions due count and a one-tap shortcut to open the web app.
+
+### Key Technical Highlights
+* **Native widget** built with Jetpack Glance AppWidget (not a web wrapper).
+* **WorkManager background sync** every 15 minutes, respecting Android Doze/battery policies.
+* **Offline cache preservation** — cached metrics survive network timeouts; a stale-data indicator (`⚠️ Offline • Xm ago`) is shown when fresh data is unavailable.
+* **Render free-tier resilience** — 60-second connection timeout with exponential backoff and jitter for cold-start container spin-up.
+
+### Quick Start
+```bash
+# Build a debug APK from the android-companion directory
+./gradlew assembleDebug
+
+# Install to a connected device via ADB
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
+## 12. Database Backup & Disaster Recovery
 
 When operating in production with managed PostgreSQL:
 
@@ -397,8 +446,9 @@ When operating in production with managed PostgreSQL:
 
 ---
 
-## 12. Known Limitations & Roadmap
+## 13. Known Limitations & Roadmap
 
 * **In-Memory Rate Limiting:** The current rate limiter runs in process memory. In a distributed multi-instance deployment behind a load balancer, backing `express-rate-limit` with Redis is recommended.
 * **Large Frontend Chunk Size:** Consider introducing code-splitting via `React.lazy()` for Analytics, Revision Center, and CS Fundamentals pages to reduce the initial load bundle.
 * **Custom Questions Authoring:** Currently questions are seeded in PostgreSQL; adding an in-app instructor/admin authoring interface for new questions is planned on the roadmap.
+* **Widget Task Persistence:** The floating widget's task list is stored in `localStorage` and is therefore browser-local and not synced to the backend database or across devices.
