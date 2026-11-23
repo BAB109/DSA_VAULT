@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: dsa-vault-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run db:migrate && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REQUIRE_DB
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
