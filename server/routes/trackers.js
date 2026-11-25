@@ -1071,12 +1071,12 @@ router.get('/:id/today', requireTrackerMember, async (req, res) => {
     url: `https://leetcode.com/problems/${r.slug}/`,
     submission: r.submission_id
       ? {
-          id: r.submission_id,
-          submittedAt: r.submitted_at,
-          solutionUrl: r.solution_url,
-          timeTaken: r.time_taken,
-          notes: r.notes,
-        }
+        id: r.submission_id,
+        submittedAt: r.submitted_at,
+        solutionUrl: r.solution_url,
+        timeTaken: r.time_taken,
+        notes: r.notes,
+      }
       : null,
   }));
 
@@ -1155,109 +1155,109 @@ router.post(
   requireTrackerMember,
   async (req, res) => {
 
-  const { id: trackerId, assignmentId } = req.params;
-  if (!isValidUUID(assignmentId)) {
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Assignment not found.' });
-  }
+    const { id: trackerId, assignmentId } = req.params;
+    if (!isValidUUID(assignmentId)) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Assignment not found.' });
+    }
 
-  const { solutionUrl, timeTaken, notes } = req.body || {};
+    const { solutionUrl, timeTaken, notes } = req.body || {};
 
-  if (!solutionUrl || typeof solutionUrl !== 'string' || !isValidHttpUrl(solutionUrl)) {
-    return res.status(400).json({
-      error: 'INVALID_URL',
-      message: 'solutionUrl is required and must begin with http:// or https://',
-    });
-  }
+    if (!solutionUrl || typeof solutionUrl !== 'string' || !isValidHttpUrl(solutionUrl)) {
+      return res.status(400).json({
+        error: 'INVALID_URL',
+        message: 'solutionUrl is required and must begin with http:// or https://',
+      });
+    }
 
-  const userId = req.user.id;
+    const userId = req.user.id;
 
-  // Check assignment exists and belongs to this tracker
-  const assignRes = await pool.query(
-    `SELECT a.*, c.title, c.slug, c.difficulty
+    // Check assignment exists and belongs to this tracker
+    const assignRes = await pool.query(
+      `SELECT a.*, c.title, c.slug, c.difficulty
      FROM tracker_assignments a
      JOIN catalog_problems c ON c.id = a.catalog_id
      WHERE a.id = $1 AND a.tracker_id = $2`,
-    [assignmentId, trackerId]
-  );
-
-  if (assignRes.rows.length === 0) {
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Assignment not found.' });
-  }
-
-  const assignment = assignRes.rows[0];
-
-  // Check if already submitted
-  const subCheck = await pool.query(
-    'SELECT id FROM submissions WHERE user_id = $1 AND assignment_id = $2',
-    [userId, assignmentId]
-  );
-  if (subCheck.rows.length > 0) {
-    return res.status(409).json({
-      error: 'ALREADY_SUBMITTED',
-      message: 'You have already submitted for this assignment.',
-    });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Create or reuse the caller's own problems row via catalog_id
-    const probCheck = await client.query(
-      'SELECT id FROM problems WHERE user_id = $1 AND catalog_id = $2 LIMIT 1',
-      [userId, assignment.catalog_id]
+      [assignmentId, trackerId]
     );
 
-    let problemId;
-    if (probCheck.rows.length > 0) {
-      problemId = probCheck.rows[0].id;
-    } else {
-      const insertProb = await client.query(
-        `INSERT INTO problems (
+    if (assignRes.rows.length === 0) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Assignment not found.' });
+    }
+
+    const assignment = assignRes.rows[0];
+
+    // Check if already submitted
+    const subCheck = await pool.query(
+      'SELECT id FROM submissions WHERE user_id = $1 AND assignment_id = $2',
+      [userId, assignmentId]
+    );
+    if (subCheck.rows.length > 0) {
+      return res.status(409).json({
+        error: 'ALREADY_SUBMITTED',
+        message: 'You have already submitted for this assignment.',
+      });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Create or reuse the caller's own problems row via catalog_id
+      const probCheck = await client.query(
+        'SELECT id FROM problems WHERE user_id = $1 AND catalog_id = $2 LIMIT 1',
+        [userId, assignment.catalog_id]
+      );
+
+      let problemId;
+      if (probCheck.rows.length > 0) {
+        problemId = probCheck.rows[0].id;
+      } else {
+        const insertProb = await client.query(
+          `INSERT INTO problems (
            user_id, title, platform, problem_url, submission_url,
            difficulty, solving_status, time_taken_minutes, solved_at, catalog_id
          ) VALUES ($1, $2, 'LeetCode', $3, $4, $5, 'Solved Independently', $6, CURRENT_DATE, $7)
          RETURNING id`,
-        [
-          userId,
-          assignment.title,
-          `https://leetcode.com/problems/${assignment.slug}/`,
-          solutionUrl,
-          assignment.difficulty || 'Medium',
-          timeTaken ? parseInt(timeTaken, 10) : null,
-          assignment.catalog_id,
-        ]
-      );
-      problemId = insertProb.rows[0].id;
-    }
+          [
+            userId,
+            assignment.title,
+            `https://leetcode.com/problems/${assignment.slug}/`,
+            solutionUrl,
+            assignment.difficulty || 'Medium',
+            timeTaken ? parseInt(timeTaken, 10) : null,
+            assignment.catalog_id,
+          ]
+        );
+        problemId = insertProb.rows[0].id;
+      }
 
-    // Insert into submissions
-    const subRes = await client.query(
-      `INSERT INTO submissions (user_id, assignment_id, solution_url, time_taken, notes, problem_id)
+      // Insert into submissions
+      const subRes = await client.query(
+        `INSERT INTO submissions (user_id, assignment_id, solution_url, time_taken, notes, problem_id)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, submitted_at, solution_url, time_taken, notes, problem_id`,
-      [
-        userId,
-        assignmentId,
-        solutionUrl,
-        timeTaken ? parseInt(timeTaken, 10) : null,
-        notes || null,
-        problemId,
-      ]
-    );
+        [
+          userId,
+          assignmentId,
+          solutionUrl,
+          timeTaken ? parseInt(timeTaken, 10) : null,
+          notes || null,
+          problemId,
+        ]
+      );
 
-    await client.query('COMMIT');
-    return res.status(201).json({
-      message: 'Submission recorded successfully.',
-      submission: subRes.rows[0],
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-});
+      await client.query('COMMIT');
+      return res.status(201).json({
+        message: 'Submission recorded successfully.',
+        submission: subRes.rows[0],
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
 
 // GET /api/trackers/:id/board - Leaderboard / member stats (done today, pending count, streak)
 router.get('/:id/board', requireTrackerMember, async (req, res) => {
