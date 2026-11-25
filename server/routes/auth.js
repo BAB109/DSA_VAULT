@@ -221,7 +221,7 @@ router.post('/login', authLimiter, async (req, res) => {
     // Try finding user in PostgreSQL
     try {
       const { rows } = await pool.query(
-        'SELECT id, username, password_hash, created_at FROM users WHERE username = $1',
+        'SELECT id, username, password_hash, is_admin, created_at FROM users WHERE username = $1',
         [normalizedUsername]
       );
       if (rows.length > 0) {
@@ -229,6 +229,7 @@ router.post('/login', authLimiter, async (req, res) => {
           id: rows[0].id,
           username: rows[0].username,
           passwordHash: rows[0].password_hash,
+          isAdmin: Boolean(rows[0].is_admin),
           created_at: rows[0].created_at,
         };
       }
@@ -292,6 +293,7 @@ router.post('/login', authLimiter, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        isAdmin: Boolean(user.isAdmin ?? user.is_admin),
         created_at: user.created_at,
       },
       token,
@@ -313,6 +315,7 @@ router.get('/me', authenticateToken, (req, res) => {
     user: {
       id: req.user.id,
       username: req.user.username,
+      isAdmin: Boolean(req.user.is_admin),
       created_at: req.user.created_at,
     },
   });

@@ -21,6 +21,9 @@ import CSFundamentalsTopic from './pages/CSFundamentalsTopic';
 import CSFundamentalsDaily from './pages/CSFundamentalsDaily';
 import CSFundamentalsAssessment from './pages/CSFundamentalsAssessment';
 import TaskWidgetPage from './pages/TaskWidgetPage';
+import Trackers from './pages/Trackers';
+import TrackerJoin from './pages/TrackerJoin';
+import TrackerDetail from './pages/TrackerDetail';
 
 
 // ─── Layout wrapper ────────────────────────────────────────────────────────────
@@ -148,6 +151,20 @@ export default function App() {
           <Route
             path="/widget/tasks"
             element={<RequireAuth><TaskWidgetPage /></RequireAuth>}
+          />
+
+          {/* ── Trackers routes ── */}
+          <Route
+            path="/trackers"
+            element={<RequireAuth><Layout><Trackers /></Layout></RequireAuth>}
+          />
+          <Route
+            path="/trackers/join"
+            element={<Layout><TrackerJoin /></Layout>}
+          />
+          <Route
+            path="/trackers/:id"
+            element={<RequireAuth><Layout><TrackerDetail /></Layout></RequireAuth>}
           />
 
           {/* ── 404 ── */}

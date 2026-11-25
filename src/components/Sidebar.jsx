@@ -2,13 +2,14 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PlusCircle, BookOpen, RotateCcw,
   BarChart2, Settings, BookMarked, Menu, X, LogOut,
-  GraduationCap, ListTodo,
+  GraduationCap, ListTodo, Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/trackers', icon: Users, label: 'Trackers' },
   { to: '/add', icon: PlusCircle, label: 'Add Problem' },
   { to: '/library', icon: BookOpen, label: 'Problem Library' },
   { to: '/revision', icon: RotateCcw, label: 'Revision Center' },

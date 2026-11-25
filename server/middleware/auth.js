@@ -29,7 +29,7 @@ export async function authenticateToken(req, res, next) {
     // Verify user exists in database if accessible
     try {
       const { rows } = await pool.query(
-        'SELECT id, username, created_at FROM users WHERE id = $1',
+        'SELECT id, username, is_admin, created_at FROM users WHERE id = $1',
         [decoded.id]
       );
 

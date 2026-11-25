@@ -11,6 +11,7 @@ import problemsRoutes from './routes/problems.js';
 import csFundamentalsRoutes from './routes/csFundamentals.js';
 import csAssessmentsRoutes from './routes/csAssessments.js';
 import catalogRoutes from './routes/catalog.js';
+import trackerRoutes from './routes/trackers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -89,6 +90,7 @@ app.get('/api/ready', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api', problemsRoutes);
 app.use('/api/catalog', catalogRoutes);
+app.use('/api/trackers', trackerRoutes);
 app.use('/api/cs-fundamentals', csFundamentalsRoutes);
 app.use('/api/cs-assessments', csAssessmentsRoutes);
 

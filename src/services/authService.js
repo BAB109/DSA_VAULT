@@ -43,6 +43,7 @@ function _saveSession(user, token) {
   const session = {
     userId: user.id,
     username: user.username,
+    isAdmin: Boolean(user.isAdmin ?? user.is_admin),
     token,
   };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
