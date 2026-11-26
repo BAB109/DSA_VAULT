@@ -4,6 +4,16 @@ import rateLimit from 'express-rate-limit';
 import { parse } from 'csv-parse/sync';
 import { pool } from '../../db/pool.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { requireAdmin } from './admin.js';
+import {
+  fetchTrackerJoinRequests,
+  decideTrackerJoinRequest,
+  fetchTrackerInvites,
+  createTrackerInvite,
+  revokeTrackerInvite,
+  removeTrackerMember,
+  getMemberStats,
+} from '../services/trackerAdminShared.js';
 
 const router = express.Router();
 
@@ -90,43 +100,23 @@ export async function checkIsAdmin(userId) {
 }
 
 // ── Middlewares ──────────────────────────────────────────────────────────────
-export async function requireGlobalAdmin(req, res, next) {
-  const isAdmin = await checkIsAdmin(req.user.id);
-  if (!isAdmin) {
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
-  }
-  next();
-}
+export const requireGlobalAdmin = requireAdmin;
 
 export async function requireTrackerAdmin(req, res, next) {
-  const { id: trackerId } = req.params;
-  if (!isValidUUID(trackerId)) {
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
-  }
-
-  const userId = req.user.id;
-  const isAdmin = await checkIsAdmin(userId);
-
-  if (!isAdmin) {
-    // Non-admins get 403 on admin routes only if they are members, else 404
-    const memRes = await pool.query(
-      'SELECT 1 FROM tracker_members WHERE tracker_id = $1 AND user_id = $2',
-      [trackerId, userId]
-    );
-    if (memRes.rows.length > 0) {
-      return res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
+  return requireAdmin(req, res, async () => {
+    const { id: trackerId } = req.params;
+    if (!isValidUUID(trackerId)) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
     }
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
-  }
 
-  // Admin: verify tracker exists
-  const tRes = await pool.query('SELECT * FROM trackers WHERE id = $1', [trackerId]);
-  if (tRes.rows.length === 0) {
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
-  }
+    const tRes = await pool.query('SELECT * FROM trackers WHERE id = $1', [trackerId]);
+    if (tRes.rows.length === 0) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
+    }
 
-  req.tracker = tRes.rows[0];
-  next();
+    req.tracker = tRes.rows[0];
+    next();
+  });
 }
 
 export async function requireTrackerMember(req, res, next) {
@@ -157,13 +147,16 @@ export async function requireTrackerMember(req, res, next) {
 // ── Assignment Generator Service ─────────────────────────────────────────────
 export async function generateAssignments(trackerId, client) {
   const trackerRes = await client.query(
-    'SELECT id, timezone, per_day, start_date::text FROM trackers WHERE id = $1 FOR UPDATE',
+    'SELECT id, timezone, per_day, start_date::text, status FROM trackers WHERE id = $1 FOR UPDATE',
     [trackerId]
   );
   if (trackerRes.rows.length === 0) {
     throw new Error('Tracker not found');
   }
   const tracker = trackerRes.rows[0];
+  if (tracker.status === 'archived') {
+    return { sheetEmpty: false, sheetComplete: false, archived: true };
+  }
   const timezone = tracker.timezone || 'Asia/Kolkata';
   const perDay = tracker.per_day;
   const startDateStr = tracker.start_date;
@@ -257,8 +250,28 @@ export async function generateAssignments(trackerId, client) {
   };
 }
 
-// ── All routes behind authenticateToken ──────────────────────────────────────
-router.use(authenticateToken);
+// ── Route Authentication Router ──────────────────────────────────────────────
+router.use((req, res, next) => {
+  // If this is an admin route, let requireAdmin / requireTrackerAdmin handle authentication
+  const isAdminRoute =
+    (req.method === 'POST' && req.path === '/') ||
+    req.path.includes('/requests') ||
+    req.path.includes('/invites') ||
+    req.path.includes('/remove') ||
+    req.path.includes('/settings') ||
+    req.path.includes('/sheet/');
+
+  // Note: /invites/accept and user requests are user routes
+  const isUserRoute =
+    req.path === '/invites/accept' ||
+    (req.method === 'POST' && req.path === '/requests') ||
+    (req.method === 'DELETE' && req.path.startsWith('/requests/'));
+
+  if (isAdminRoute && !isUserRoute) {
+    return next();
+  }
+  return authenticateToken(req, res, next);
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. NON-PARAMETERIZED ROUTES (Defined first to prevent collision with /:id)
@@ -536,16 +549,7 @@ router.post('/invites/accept', async (req, res) => {
 // GET /api/trackers/:id/requests - List join requests
 router.get('/:id/requests', requireTrackerAdmin, async (req, res) => {
   const { id: trackerId } = req.params;
-
-  const { rows } = await pool.query(
-    `SELECT r.id, r.user_id, u.username, r.message, r.status, r.created_at, r.decided_at
-     FROM tracker_join_requests r
-     JOIN users u ON u.id = r.user_id
-     WHERE r.tracker_id = $1
-     ORDER BY r.created_at DESC`,
-    [trackerId]
-  );
-
+  const rows = await fetchTrackerJoinRequests(trackerId);
   return res.status(200).json(rows);
 });
 
@@ -558,55 +562,15 @@ router.post('/:id/requests/:reqId/decision', requireTrackerAdmin, async (req, re
     return res.status(400).json({ error: 'INVALID_DECISION', message: 'Decision must be approve or reject.' });
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const { rows } = await client.query(
-      'SELECT * FROM tracker_join_requests WHERE id = $1 AND tracker_id = $2 FOR UPDATE',
-      [reqId, trackerId]
-    );
-
-    if (rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'REQUEST_NOT_FOUND', message: 'Join request not found.' });
-    }
-
-    const request = rows[0];
-    if (request.status !== 'pending') {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'ALREADY_DECIDED', message: `Request is already ${request.status}.` });
-    }
-
-    if (decision === 'approve') {
-      await client.query(
-        `INSERT INTO tracker_members (tracker_id, user_id, joined_at)
-         VALUES ($1, $2, CURRENT_TIMESTAMP)
-         ON CONFLICT (tracker_id, user_id) DO NOTHING`,
-        [trackerId, request.user_id]
-      );
-      await client.query(
-        `UPDATE tracker_join_requests
-         SET status = 'approved', decided_by = $1, decided_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [req.user.id, reqId]
-      );
-    } else {
-      await client.query(
-        `UPDATE tracker_join_requests
-         SET status = 'rejected', decided_by = $1, decided_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [req.user.id, reqId]
-      );
-    }
-
-    await client.query('COMMIT');
-    return res.status(200).json({ success: true, status: decision === 'approve' ? 'approved' : 'rejected' });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
+  const result = await decideTrackerJoinRequest(trackerId, reqId, decision, req.user.id);
+  if (result.notFound) {
+    return res.status(404).json({ error: 'REQUEST_NOT_FOUND', message: 'Join request not found.' });
   }
+  if (result.alreadyDecided) {
+    return res.status(409).json({ error: 'ALREADY_DECIDED', message: `Request is already ${result.status}.` });
+  }
+
+  return res.status(200).json({ success: true, status: result.status });
 });
 
 // POST /api/trackers/:id/invites - Create invite link
@@ -616,81 +580,38 @@ router.post('/:id/invites', requireTrackerAdmin, async (req, res) => {
   const expDays = parseInt(expiresInDays, 10) || 7;
   const uses = parseInt(maxUses, 10) || 10;
 
-  const { rawToken, tokenHash } = generateInviteToken();
-  const expiresAt = new Date(Date.now() + expDays * 24 * 60 * 60 * 1000);
-
-  const { rows } = await pool.query(
-    `INSERT INTO tracker_invites (tracker_id, token_hash, created_by, expires_at, max_uses, use_count)
-     VALUES ($1, $2, $3, $4, $5, 0)
-     RETURNING id, expires_at, max_uses, use_count, created_at`,
-    [trackerId, tokenHash, req.user.id, expiresAt, uses]
-  );
+  const invite = await createTrackerInvite(trackerId, req.user.id, expDays, uses);
 
   return res.status(201).json({
     message: 'Invite created successfully.',
-    invite: {
-      ...rows[0],
-      token: rawToken, // Returned ONCE! Never stored in plaintext
-    },
+    invite,
   });
 });
 
 // DELETE /api/trackers/:id/invites/:inviteId - Revoke invite link
 router.delete('/:id/invites/:inviteId', requireTrackerAdmin, async (req, res) => {
   const { id: trackerId, inviteId } = req.params;
-
-  const { rows } = await pool.query(
-    `UPDATE tracker_invites
-     SET revoked_at = CURRENT_TIMESTAMP
-     WHERE id = $1 AND tracker_id = $2 AND revoked_at IS NULL
-     RETURNING id`,
-    [inviteId, trackerId]
-  );
-
-  if (rows.length === 0) {
+  const revoked = await revokeTrackerInvite(trackerId, inviteId);
+  if (!revoked) {
     return res.status(404).json({ error: 'NOT_FOUND', message: 'Invite not found or already revoked.' });
   }
-
   return res.status(200).json({ message: 'Invite revoked.' });
 });
 
 // GET /api/trackers/:id/invites - List existing invites (admin only, never returns token or token_hash)
 router.get('/:id/invites', requireTrackerAdmin, async (req, res) => {
   const { id: trackerId } = req.params;
-
-  const { rows } = await pool.query(
-    `SELECT id, expires_at, max_uses, use_count, (revoked_at IS NOT NULL) AS revoked, created_at
-     FROM tracker_invites
-     WHERE tracker_id = $1
-     ORDER BY created_at DESC`,
-    [trackerId]
-  );
-
-  const invites = rows.map((r) => ({
-    id: r.id,
-    expiresAt: r.expires_at,
-    maxUses: r.max_uses,
-    useCount: r.use_count,
-    revoked: Boolean(r.revoked),
-    createdAt: r.created_at,
-  }));
-
+  const invites = await fetchTrackerInvites(trackerId);
   return res.status(200).json(invites);
 });
 
 // POST /api/trackers/:id/members/:userId/remove - Remove member
 router.post('/:id/members/:userId/remove', requireTrackerAdmin, async (req, res) => {
   const { id: trackerId, userId: targetUserId } = req.params;
-
-  const { rows } = await pool.query(
-    'DELETE FROM tracker_members WHERE tracker_id = $1 AND user_id = $2 RETURNING tracker_id',
-    [trackerId, targetUserId]
-  );
-
-  if (rows.length === 0) {
+  const removed = await removeTrackerMember(trackerId, targetUserId);
+  if (!removed) {
     return res.status(404).json({ error: 'NOT_FOUND', message: 'Member not found in tracker.' });
   }
-
   return res.status(200).json({ message: 'Member removed.' });
 });
 
@@ -989,23 +910,11 @@ router.get('/:id', requireTrackerMember, async (req, res) => {
 // GET /api/trackers/:id/members - List members (member only)
 router.get('/:id/members', requireTrackerMember, async (req, res) => {
   const { id: trackerId } = req.params;
-
-  const { rows } = await pool.query(
-    `SELECT m.user_id, u.username, m.joined_at
-     FROM tracker_members m
-     JOIN users u ON u.id = m.user_id
-     WHERE m.tracker_id = $1
-     ORDER BY m.joined_at ASC`,
-    [trackerId]
-  );
-
-  const members = rows.map((r) => ({
-    userId: r.user_id,
-    username: r.username,
-    joinedAt: r.joined_at,
-  }));
-
-  return res.status(200).json(members);
+  const stats = await getMemberStats(trackerId, pool);
+  if (!stats) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
+  }
+  return res.status(200).json(stats.members);
 });
 
 // DELETE /api/trackers/:id/leave - Leave tracker
@@ -1059,6 +968,27 @@ router.get('/:id/today', requireTrackerMember, async (req, res) => {
     [userId, trackerId, todayStr]
   );
 
+  // Fetch all current members and their submissions for today's assignments
+  const { rows: trkMembers } = await pool.query(
+    `SELECT m.user_id, u.username
+     FROM tracker_members m
+     JOIN users u ON u.id = m.user_id
+     WHERE m.tracker_id = $1
+     ORDER BY m.joined_at ASC`,
+    [trackerId]
+  );
+
+  const assignmentIds = rows.map((r) => r.assignment_id);
+  let todaySubs = [];
+  if (assignmentIds.length > 0) {
+    const { rows: subRows } = await pool.query(
+      `SELECT assignment_id, user_id FROM submissions WHERE assignment_id = ANY($1)`,
+      [assignmentIds]
+    );
+    todaySubs = subRows;
+  }
+  const subKeySet = new Set(todaySubs.map((s) => `${s.assignment_id}:${s.user_id}`));
+
   const assignments = rows.map((r) => ({
     assignmentId: r.assignment_id,
     assignDate: r.assign_date,
@@ -1069,6 +999,11 @@ router.get('/:id/today', requireTrackerMember, async (req, res) => {
     difficulty: r.difficulty,
     topicTags: r.topic_tags,
     url: `https://leetcode.com/problems/${r.slug}/`,
+    membersStatus: trkMembers.map((m) => ({
+      userId: m.user_id,
+      username: m.username,
+      done: subKeySet.has(`${r.assignment_id}:${m.user_id}`),
+    })),
     submission: r.submission_id
       ? {
         id: r.submission_id,
@@ -1262,8 +1197,6 @@ router.post(
 // GET /api/trackers/:id/board - Leaderboard / member stats (done today, pending count, streak)
 router.get('/:id/board', requireTrackerMember, async (req, res) => {
   const { id: trackerId } = req.params;
-  const timezone = req.tracker.timezone || 'Asia/Kolkata';
-  const todayStr = getTodayInTimezone(timezone);
 
   // Ensure assignments generated through today
   const client = await pool.connect();
@@ -1278,122 +1211,16 @@ router.get('/:id/board', requireTrackerMember, async (req, res) => {
     client.release();
   }
 
-  // Get members
-  const { rows: members } = await pool.query(
-    `SELECT m.user_id, u.username, m.joined_at
-     FROM tracker_members m
-     JOIN users u ON u.id = m.user_id
-     WHERE m.tracker_id = $1
-     ORDER BY m.joined_at ASC`,
-    [trackerId]
-  );
+  const stats = await getMemberStats(trackerId, pool);
+  if (!stats) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Tracker not found.' });
+  }
 
-  // Fetch all assignments for this tracker up to today
-  const { rows: allAssignments } = await pool.query(
-    `SELECT id, assign_date::text AS assign_date
-     FROM tracker_assignments
-     WHERE tracker_id = $1 AND assign_date <= $2
-     ORDER BY assign_date ASC`,
-    [trackerId, todayStr]
-  );
-
-  // Fetch all submissions for this tracker
-  const { rows: allSubmissions } = await pool.query(
-    `SELECT s.user_id, s.assignment_id, a.assign_date::text AS assign_date, s.submitted_at
-     FROM submissions s
-     JOIN tracker_assignments a ON a.id = s.assignment_id
-     WHERE a.tracker_id = $1`,
-    [trackerId]
-  );
-
-  const board = members.map((member) => {
-    const memberId = member.user_id;
-    const memberJoinedDate = getTodayInTimezone(timezone, new Date(member.joined_at));
-
-    // Filter assignments valid for this member
-    const memberAssignments = allAssignments.filter((a) => a.assign_date >= memberJoinedDate);
-
-    // Group submissions by assignment_id
-    const userSubMap = new Map();
-    for (const sub of allSubmissions) {
-      if (sub.user_id === memberId) {
-        userSubMap.set(sub.assignment_id, sub);
-      }
-    }
-
-    // 1. Done today
-    const todayAssignments = memberAssignments.filter((a) => a.assign_date === todayStr);
-    const doneTodayCount = todayAssignments.filter((a) => userSubMap.has(a.id)).length;
-
-    // 2. Pending count
-    const overdueAssignments = memberAssignments.filter((a) => a.assign_date < todayStr);
-    const pendingCount = overdueAssignments.filter((a) => !userSubMap.has(a.id)).length;
-
-    // 3. On-time streak
-    // Streak counts only submissions made on the assignment's own date
-    // Group member assignments by assign_date
-    const assignmentsByDate = new Map();
-    for (const a of memberAssignments) {
-      if (!assignmentsByDate.has(a.assign_date)) {
-        assignmentsByDate.set(a.assign_date, []);
-      }
-      assignmentsByDate.get(a.assign_date).push(a);
-    }
-
-    const sortedDates = Array.from(assignmentsByDate.keys()).sort(); // ascending
-    let streak = 0;
-
-    // Evaluate consecutive days backwards starting from today (or yesterday if today has not been attempted/finished)
-    const todayDoneOnTime =
-      todayAssignments.length > 0 &&
-      todayAssignments.every((a) => {
-        const sub = userSubMap.get(a.id);
-        if (!sub) return false;
-        const subDate = getTodayInTimezone(timezone, new Date(sub.submitted_at));
-        return subDate === a.assign_date;
-      });
-
-    let checkIndex = sortedDates.indexOf(todayStr);
-    if (checkIndex === -1) {
-      checkIndex = sortedDates.length - 1;
-    } else if (!todayDoneOnTime) {
-      // If today is not completely done on time yet, streak begins checking from yesterday
-      checkIndex -= 1;
-    }
-
-    for (let i = checkIndex; i >= 0; i--) {
-      const date = sortedDates[i];
-      const dayAssigns = assignmentsByDate.get(date);
-      const allOnTime =
-        dayAssigns.length > 0 &&
-        dayAssigns.every((a) => {
-          const sub = userSubMap.get(a.id);
-          if (!sub) return false;
-          const subDate = getTodayInTimezone(timezone, new Date(sub.submitted_at));
-          return subDate === a.assign_date;
-        });
-
-      if (allOnTime) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-
-    return {
-      userId: member.user_id,
-      user_id: member.user_id,
-      username: member.username,
-      doneToday: doneTodayCount,
-      done_today: doneTodayCount,
-      pendingCount,
-      pending_count: pendingCount,
-      streak,
-      on_time_streak: streak,
-    };
+  return res.status(200).json({
+    room: stats.room,
+    members: stats.members,
+    board: stats.members,
   });
-
-  return res.status(200).json({ board });
 });
 
 export default router;

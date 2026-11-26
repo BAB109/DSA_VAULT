@@ -1,18 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Users, PlusCircle, Clock, AlertCircle, CheckCircle2,
-  ArrowRight, Send,
+  Users, Clock, AlertCircle, CheckCircle2,
+  ArrowRight, Send, Shield,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { trackerService } from '../services/trackerService';
+import { hasValidAdminToken } from '../services/adminApi';
 import { Card, CardHeader, CardBody } from '../components/Card';
-import { Modal } from '../components/Modal';
 import { Spinner, LoadingState } from '../components/States';
 
 export default function Trackers() {
-  const { session } = useAuth();
-  const isAdmin = Boolean(session?.isAdmin);
+  const [isAdminAuthed, setIsAdminAuthed] = useState(() => hasValidAdminToken());
+
+  useEffect(() => {
+    const handleTokenChange = () => {
+      setIsAdminAuthed(hasValidAdminToken());
+    };
+    window.addEventListener('admin-token-changed', handleTokenChange);
+    return () => window.removeEventListener('admin-token-changed', handleTokenChange);
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [trackers, setTrackers] = useState([]);
@@ -25,17 +31,6 @@ export default function Trackers() {
   const [joinMessage, setJoinMessage] = useState('');
   const [joinSubmitting, setJoinSubmitting] = useState(false);
   const [joinFeedback, setJoinFeedback] = useState(null);
-
-  // Create Tracker state (Admin only)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createData, setCreateData] = useState({
-    name: '',
-    timezone: 'Asia/Kolkata',
-    per_day: 2,
-    start_date: new Date().toISOString().slice(0, 10),
-  });
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createError, setCreateError] = useState(null);
 
   // Cancelling request state
   const [cancellingId, setCancellingId] = useState(null);
@@ -139,40 +134,6 @@ export default function Trackers() {
     }
   };
 
-  // Handle Create Tracker (Admin only)
-  const handleCreateTracker = async (e) => {
-    e.preventDefault();
-    setCreateError(null);
-
-    if (!createData.name.trim()) {
-      setCreateError('Tracker name is required.');
-      return;
-    }
-
-    setCreateSubmitting(true);
-    try {
-      await trackerService.createTracker({
-        name: createData.name.trim(),
-        timezone: createData.timezone,
-        per_day: parseInt(createData.per_day, 10),
-        start_date: createData.start_date,
-      });
-
-      setIsCreateModalOpen(false);
-      setCreateData({
-        name: '',
-        timezone: 'Asia/Kolkata',
-        per_day: 2,
-        start_date: new Date().toISOString().slice(0, 10),
-      });
-      loadData();
-    } catch (err) {
-      setCreateError(err.data?.message || err.message || 'Failed to create tracker.');
-    } finally {
-      setCreateSubmitting(false);
-    }
-  };
-
   if (loading) {
     return <LoadingState message="Loading your trackers..." />;
   }
@@ -191,14 +152,14 @@ export default function Trackers() {
           </p>
         </div>
 
-        {isAdmin && (
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
+        {isAdminAuthed && (
+          <Link
+            to="/admin"
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-xs transition"
           >
-            <PlusCircle size={16} />
-            Create Tracker
-          </button>
+            <Shield size={16} />
+            Manage trackers in Admin
+          </Link>
         )}
       </div>
 
@@ -225,7 +186,7 @@ export default function Trackers() {
             </div>
             <h3 className="text-sm font-semibold text-gray-800">You are not in any trackers yet</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1 mb-4">
-              Join an existing group using a public code or invite link, or create a tracker if you have admin privileges.
+              Join an existing group using a public code or invite link.
             </p>
           </Card>
         ) : (
@@ -411,103 +372,6 @@ export default function Trackers() {
           </form>
         </CardBody>
       </Card>
-
-      {/* ── Modal: Create Tracker (Admin Only) ── */}
-      {isAdmin && (
-        <Modal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="Create New Tracker"
-          size="md"
-        >
-          <form onSubmit={handleCreateTracker} className="p-6 space-y-4">
-            {createError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                {createError}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                Tracker Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. 2026 FAANG Prep Group"
-                value={createData.name}
-                onChange={(e) => setCreateData({ ...createData, name: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Problems Per Day (1-10) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  required
-                  value={createData.per_day}
-                  onChange={(e) => setCreateData({ ...createData, per_day: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Start Date (YYYY-MM-DD) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={createData.start_date}
-                  onChange={(e) => setCreateData({ ...createData, start_date: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                Timezone <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={createData.timezone}
-                onChange={(e) => setCreateData({ ...createData, timezone: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white"
-              >
-                <option value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</option>
-                <option value="UTC">UTC (Universal Coordinated Time)</option>
-                <option value="America/New_York">America/New_York (EST/EDT)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
-                <option value="Europe/London">Europe/London (GMT/BST)</option>
-              </select>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition"
-                disabled={createSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={createSubmitting}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg transition"
-              >
-                {createSubmitting ? 'Creating...' : 'Create Tracker'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
     </div>
   );
 }

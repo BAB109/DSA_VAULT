@@ -1393,7 +1393,7 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
     // 3. Fetch all completed revisions for this user's problems
     const { rows: revRows } = await pool.query(
-      `SELECT r.id, r.problem_id, r.scheduled_at, r.completed_at, r.result, r.notes
+      `SELECT r.id, r.problem_id, r.scheduled_at, COALESCE(r.scheduled_at, r.completed_at) as completed_at, r.result, r.notes
        FROM revisions r
        JOIN problems p ON r.problem_id = p.id
        WHERE p.user_id = $1 AND r.completed_at IS NOT NULL`,

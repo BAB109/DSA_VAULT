@@ -24,7 +24,32 @@ export async function authenticateToken(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        throw err;
+      }
+      const adminSecret = process.env.ADMIN_JWT_SECRET;
+      if (adminSecret) {
+        try {
+          const adminDecoded = jwt.verify(token, adminSecret);
+          if (adminDecoded && adminDecoded.scope === 'admin') {
+            decoded = { id: adminDecoded.sub || adminDecoded.id, username: adminDecoded.username };
+          } else {
+            throw err;
+          }
+        } catch (adminErr) {
+          if (adminErr.name === 'TokenExpiredError') {
+            throw adminErr;
+          }
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
 
     // Verify user exists in database if accessible
     try {

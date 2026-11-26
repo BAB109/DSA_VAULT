@@ -22,7 +22,6 @@ import FocusTimerWidget from '../components/widgets/FocusTimerWidget';
 import QuickRevisionWidget from '../components/widgets/QuickRevisionWidget';
 import QuickScratchpadWidget from '../components/widgets/QuickScratchpadWidget';
 import DailyTipWidget from '../components/widgets/DailyTipWidget';
-import DailyTasksWidget from '../components/widgets/DailyTasksWidget';
 import WidgetCustomizerModal from '../components/widgets/WidgetCustomizerModal';
 
 const DIFF_COLORS = {
@@ -42,13 +41,6 @@ const DEFAULT_WIDGET_CONFIG = [
     description: '8 essential metrics: total recorded, streak, today’s solve, due revisions, and rates',
     enabled: true,
     icon: CheckCircle,
-  },
-  {
-    id: 'daily-tasks',
-    label: "Today's Tasks & Checklist",
-    description: "Interactive daily to-do checklist, problem solving tasks, and study agenda",
-    enabled: true,
-    icon: ListTodo,
   },
   {
     id: 'timer-and-revision',
@@ -389,13 +381,6 @@ export default function Dashboard() {
                     </div>
                   }
                 />
-              </div>
-            );
-
-          case 'daily-tasks':
-            return (
-              <div key="daily-tasks">
-                <DailyTasksWidget />
               </div>
             );
 

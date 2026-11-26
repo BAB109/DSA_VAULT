@@ -94,7 +94,14 @@ export const authService = {
         body: JSON.stringify({ username: normalizedUsername, password }),
       });
 
-      return _saveSession(data.user, data.token);
+      const session = _saveSession(data.user, data.token);
+
+      // Return both session and raw response (e.g. adminToken, adminExpiresAt)
+      return {
+        ...session,
+        adminToken: data.adminToken || null,
+        adminExpiresAt: data.adminExpiresAt || null,
+      };
     } catch (err) {
       if (err.status === 401 || err.message === 'INVALID_CREDENTIALS') {
         throw new Error('INVALID_CREDENTIALS');

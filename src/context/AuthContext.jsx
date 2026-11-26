@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService, getSession, clearSession } from '../services/authService';
+import { clearAdminToken } from '../services/adminApi';
 
 const AuthContext = createContext(null);
 
@@ -10,9 +11,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     authService.verifySession()
       .then((s) => setSession(s))
-      .catch(() => { clearSession(); setSession(null); });
+      .catch(() => {
+        clearSession();
+        clearAdminToken();
+        setSession(null);
+      });
 
     const handleExpired = () => {
+      clearAdminToken();
       setSession(null);
     };
 
@@ -33,8 +39,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authService.logout();
-    setSession(null);
+    try {
+      await authService.logout();
+    } finally {
+      clearAdminToken();
+      setSession(null);
+    }
   }, []);
 
   return (

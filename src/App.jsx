@@ -16,14 +16,15 @@ import EditProblem from './pages/EditProblem';
 import RevisionCenter from './pages/RevisionCenter';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
-import CSFundamentals from './pages/CSFundamentals';
-import CSFundamentalsTopic from './pages/CSFundamentalsTopic';
-import CSFundamentalsDaily from './pages/CSFundamentalsDaily';
-import CSFundamentalsAssessment from './pages/CSFundamentalsAssessment';
-import TaskWidgetPage from './pages/TaskWidgetPage';
 import Trackers from './pages/Trackers';
 import TrackerJoin from './pages/TrackerJoin';
 import TrackerDetail from './pages/TrackerDetail';
+import AdminOverview from './pages/AdminOverview';
+import AdminTrackerDetail from './pages/AdminTrackerDetail';
+import AdminAudit from './pages/AdminAudit';
+import { AdminAuthProvider } from './context/AdminAuthContext';
+import { ProtectedAdminRoute } from './components/admin/ProtectedAdminRoute';
+import { AdminLayout } from './components/admin/AdminLayout';
 
 
 // ─── Layout wrapper ────────────────────────────────────────────────────────────
@@ -86,7 +87,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <TimerProvider>
+        <AdminAuthProvider>
+          <TimerProvider>
         <Routes>
           {/* ── Public auth routes ── */}
           <Route
@@ -131,27 +133,6 @@ export default function App() {
             path="/settings"
             element={<RequireAuth><Layout><Settings /></Layout></RequireAuth>}
           />
-          <Route
-            path="/cs-fundamentals"
-            element={<RequireAuth><Layout><CSFundamentals /></Layout></RequireAuth>}
-          />
-          <Route
-            path="/cs-fundamentals/topics/:id"
-            element={<RequireAuth><Layout><CSFundamentalsTopic /></Layout></RequireAuth>}
-          />
-          <Route
-            path="/cs-fundamentals/daily"
-            element={<RequireAuth><Layout><CSFundamentalsDaily /></Layout></RequireAuth>}
-          />
-          <Route
-            path="/cs-fundamentals/topics/:id/assessment"
-            element={<RequireAuth><Layout><CSFundamentalsAssessment /></Layout></RequireAuth>}
-          />
-
-          <Route
-            path="/widget/tasks"
-            element={<RequireAuth><TaskWidgetPage /></RequireAuth>}
-          />
 
           {/* ── Trackers routes ── */}
           <Route
@@ -165,6 +146,54 @@ export default function App() {
           <Route
             path="/trackers/:id"
             element={<RequireAuth><Layout><TrackerDetail /></Layout></RequireAuth>}
+          />
+
+          {/* ── Admin routes ── */}
+          <Route
+            path="/admin/login"
+            element={<Navigate to="/login" replace />}
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedAdminRoute>
+                <AdminLayout>
+                  <AdminOverview />
+                </AdminLayout>
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/trackers/:id"
+            element={
+              <ProtectedAdminRoute>
+                <AdminLayout>
+                  <AdminTrackerDetail />
+                </AdminLayout>
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/audit"
+            element={
+              <ProtectedAdminRoute>
+                <AdminLayout>
+                  <AdminAudit />
+                </AdminLayout>
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/*"
+            element={
+              <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-24 gap-3">
+                <p className="text-5xl font-bold text-gray-200">404</p>
+                <p className="text-gray-500">Page not found</p>
+                <Link to="/admin" className="text-indigo-600 text-sm hover:underline mt-2">
+                  ← Go to Admin Overview
+                </Link>
+              </div>
+            }
           />
 
           {/* ── 404 ── */}
@@ -186,6 +215,7 @@ export default function App() {
           />
         </Routes>
         </TimerProvider>
+        </AdminAuthProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -6,12 +6,11 @@ import { fileURLToPath } from 'url';
 import { validateEnv } from './config/env.js';
 import { logger, requestLogger } from './logger.js';
 import { pool } from '../db/pool.js';
-import authRoutes, { ensureDemoUser } from './routes/auth.js';
+import authRoutes, { ensureDemoUser, ensureAdminUser } from './routes/auth.js';
 import problemsRoutes from './routes/problems.js';
-import csFundamentalsRoutes from './routes/csFundamentals.js';
-import csAssessmentsRoutes from './routes/csAssessments.js';
 import catalogRoutes from './routes/catalog.js';
 import trackerRoutes from './routes/trackers.js';
+import adminRoutes from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,8 +90,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', problemsRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/trackers', trackerRoutes);
-app.use('/api/cs-fundamentals', csFundamentalsRoutes);
-app.use('/api/cs-assessments', csAssessmentsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ── Serve Frontend in Single-Tier Deployment ──────────────────────────────────
 if (fs.existsSync(distPath)) {
@@ -130,6 +128,7 @@ let server;
 
 if (process.env.NODE_ENV !== 'test') {
   ensureDemoUser().catch(() => {});
+  ensureAdminUser().catch(() => {});
   server = app.listen(PORT, '0.0.0.0', () => {
     logger.info(`📡 DSA Vault Backend Server running on port ${PORT}`, {
       port: PORT,

@@ -2,10 +2,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PlusCircle, BookOpen, RotateCcw,
   BarChart2, Settings, BookMarked, Menu, X, LogOut,
-  GraduationCap, ListTodo, Users,
+  Users, Shield,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { hasValidAdminToken } from '../services/adminApi';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -13,9 +14,7 @@ const navItems = [
   { to: '/add', icon: PlusCircle, label: 'Add Problem' },
   { to: '/library', icon: BookOpen, label: 'Problem Library' },
   { to: '/revision', icon: RotateCcw, label: 'Revision Center' },
-  { to: '/widget/tasks', icon: ListTodo, label: 'Daily Tasks' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
-  { to: '/cs-fundamentals', icon: GraduationCap, label: 'CS Fundamentals' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -41,8 +40,17 @@ function initials(username = '') {
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [hasAdminToken, setHasAdminToken] = useState(() => hasValidAdminToken());
   const { session, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleTokenChange = () => {
+      setHasAdminToken(hasValidAdminToken());
+    };
+    window.addEventListener('admin-token-changed', handleTokenChange);
+    return () => window.removeEventListener('admin-token-changed', handleTokenChange);
+  }, []);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -119,6 +127,9 @@ export function Sidebar() {
           {navItems.map((item) => (
             <NavItem key={item.to} {...item} onClick={closeMobile} />
           ))}
+          {hasAdminToken && (
+            <NavItem to="/admin" icon={Shield} label="Admin" onClick={closeMobile} />
+          )}
         </nav>
 
         {/* User footer */}

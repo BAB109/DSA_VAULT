@@ -96,6 +96,12 @@ async function runTrackersTests() {
     const admin = await registerUser(`trk_admin_${timestamp}`);
     cleanupUserIds.push(admin.id);
     await pool.query('UPDATE users SET is_admin = true WHERE id = $1', [admin.id]);
+    const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'vault_admin_jwt_secret_super_secure_32_chars!';
+    admin.token = jwt.sign(
+      { sub: admin.id, scope: 'admin' },
+      ADMIN_JWT_SECRET,
+      { expiresIn: '2h' }
+    );
 
     // Setup Normal User A and User B
     const userA = await registerUser(`trk_user_a_${timestamp}`);
@@ -123,7 +129,7 @@ async function runTrackersTests() {
     // ──────────────────────────────────────────────────────────────────────────
     console.log('--- Test a: Non-admin permissions & is_admin immutability ---');
 
-    // Non-admin cannot create a tracker -> 403
+    // Non-admin cannot create a tracker -> 404
     const createNonAdmin = await req(
       '/trackers',
       {
@@ -136,7 +142,7 @@ async function runTrackersTests() {
       },
       userA.token
     );
-    assert.strictEqual(createNonAdmin.status, 403, 'Non-admin creating tracker must return 403');
+    assert.strictEqual(createNonAdmin.status, 404, 'Non-admin creating tracker must return 404');
 
     // Admin creates tracker
     const createAdmin = await req(
@@ -161,7 +167,7 @@ async function runTrackersTests() {
       [tracker1.id, userA.id]
     );
 
-    // Member userA (non-admin) trying admin actions returns 403
+    // Member userA (non-admin) trying admin actions returns 404
     const previewNonAdmin = await req(
       `/trackers/${tracker1.id}/sheet/preview`,
       {
@@ -170,7 +176,7 @@ async function runTrackersTests() {
       },
       userA.token
     );
-    assert.strictEqual(previewNonAdmin.status, 403, 'Member non-admin on sheet preview must return 403');
+    assert.strictEqual(previewNonAdmin.status, 404, 'Member non-admin on sheet preview must return 404');
 
     const confirmNonAdmin = await req(
       `/trackers/${tracker1.id}/sheet/confirm`,
@@ -180,7 +186,7 @@ async function runTrackersTests() {
       },
       userA.token
     );
-    assert.strictEqual(confirmNonAdmin.status, 403, 'Member non-admin on sheet confirm must return 403');
+    assert.strictEqual(confirmNonAdmin.status, 404, 'Member non-admin on sheet confirm must return 404');
 
     const inviteNonAdmin = await req(
       `/trackers/${tracker1.id}/invites`,
@@ -190,14 +196,14 @@ async function runTrackersTests() {
       },
       userA.token
     );
-    assert.strictEqual(inviteNonAdmin.status, 403, 'Member non-admin on create invite must return 403');
+    assert.strictEqual(inviteNonAdmin.status, 404, 'Member non-admin on create invite must return 404');
 
     const removeNonAdmin = await req(
       `/trackers/${tracker1.id}/members/${userB.id}/remove`,
       { method: 'POST' },
       userA.token
     );
-    assert.strictEqual(removeNonAdmin.status, 403, 'Member non-admin on remove member must return 403');
+    assert.strictEqual(removeNonAdmin.status, 404, 'Member non-admin on remove member must return 404');
 
     // Verify is_admin cannot be set through register or profile update
     const regAdminAttempt = await req('/auth/register', {
@@ -1046,9 +1052,9 @@ async function runTrackersTests() {
       assert.strictEqual(inv.token_hash, undefined, 'NEVER return token_hash in invite listing');
     }
 
-    // Non-admin member gets 403 on GET /invites
+    // Non-admin gets 404 on GET /invites (admin routes hidden from non-admins)
     const listInvitesUserA = await req(`/trackers/${tracker1.id}/invites`, {}, userA.token);
-    assert.strictEqual(listInvitesUserA.status, 403, 'Non-admin member should get 403 on GET /invites');
+    assert.strictEqual(listInvitesUserA.status, 404, 'Non-admin member should get 404 on GET /invites');
 
     // Non-member gets 404 on GET /invites
     const listInvitesNonMember = await req(`/trackers/${tracker1.id}/invites`, {}, userD.token);

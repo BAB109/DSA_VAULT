@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { BookMarked, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { validateUsername, validatePassword } from '../services/authService';
+import { setAdminToken, ADMIN_EXPIRED_KEY, ADMIN_HAD_TOKEN_KEY } from '../services/adminApi';
 import { Input, Button } from '../components/FormControls';
 
 const ERROR_MESSAGES = {
@@ -12,17 +13,42 @@ const ERROR_MESSAGES = {
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [form, setForm] = useState({ username: '', password: '' });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [expiredNotice, setExpiredNotice] = useState(null);
+
+  useEffect(() => {
+    // Check for admin session expired notice or tab token history
+    try {
+      const notice = sessionStorage.getItem(ADMIN_EXPIRED_KEY);
+      const hadAdminToken = sessionStorage.getItem(ADMIN_HAD_TOKEN_KEY);
+
+      if (notice) {
+        setExpiredNotice(notice);
+        sessionStorage.removeItem(ADMIN_EXPIRED_KEY);
+      } else if (location.state?.from && String(location.state.from).includes('/admin')) {
+        // Navigating to admin route without an active token
+        if (hadAdminToken) {
+          setExpiredNotice('Your admin session expired, please sign in again.');
+        } else {
+          setExpiredNotice('Please sign in to continue.');
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [location.state]);
 
   const set = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
     // Clear field error on change
     if (errors[field]) setErrors((er) => { const n = { ...er }; delete n[field]; return n; });
     if (errors.form) setErrors((er) => { const n = { ...er }; delete n.form; return n; });
+    if (expiredNotice) setExpiredNotice(null);
   };
 
   const handleSubmit = async (e) => {
@@ -37,8 +63,21 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      await login({ username: form.username, password: form.password });
-      navigate('/', { replace: true });
+      const authResult = await login({ username: form.username, password: form.password });
+
+      if (authResult?.adminToken) {
+        // Store ONLY via adminApi client under dsa_admin_token in sessionStorage
+        setAdminToken(authResult.adminToken, authResult.adminSessionEndsAt);
+
+        // Navigate to originally requested admin path or /admin
+        const fromPath = location.state?.from?.pathname || (location.state?.from && typeof location.state.from === 'string' ? location.state.from : null);
+        const destination = fromPath && fromPath.startsWith('/admin') ? fromPath : '/admin';
+        navigate(destination, { replace: true });
+      } else {
+        const fromPath = location.state?.from?.pathname || (location.state?.from && typeof location.state.from === 'string' ? location.state.from : null);
+        const destination = fromPath && !fromPath.startsWith('/admin') ? fromPath : '/';
+        navigate(destination, { replace: true });
+      }
     } catch (err) {
       setErrors({ form: ERROR_MESSAGES[err.message] || err.message || 'Login failed. Please try again.' });
     } finally {
@@ -61,6 +100,13 @@ export default function Login() {
         {/* Card */}
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-7">
           <h2 className="text-base font-semibold text-gray-900 mb-5">Welcome back</h2>
+
+          {/* Expired session notice banner */}
+          {expiredNotice && (
+            <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800 font-medium">{expiredNotice}</p>
+            </div>
+          )}
 
           {/* Form-level error */}
           {errors.form && (

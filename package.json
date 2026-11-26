@@ -14,7 +14,7 @@
     "server": "node server/server.js",
     "test": "node server/test-integration.js",
     "test:widget": "node server/test-widget.js",
-    "test:all": "node server/test-scheduler.js && node server/test-analytics.js && node server/test-calendar-goals.js && node server/test-integration.js && node server/test-security-prerelease.js && node server/test-catalog.js && node server/test-catalog-link.js && node server/test-trackers.js"
+    "test:all": "node --env-file=.env server/test-scheduler.js && node --env-file=.env server/test-analytics.js && node --env-file=.env server/test-calendar-goals.js && node --env-file=.env server/test-integration.js && node --env-file=.env server/test-security-prerelease.js && node --env-file=.env server/test-catalog.js && node --env-file=.env server/test-catalog-link.js && node --env-file=.env server/test-trackers.js && node --env-file=.env server/test-admin.js && node --env-file=.env server/test-admin-auth.js && node --env-file=.env server/test-admin-contract.js && node --env-file=.env server/test-tracker-stats.js && node --env-file=.env server/test-admin-session.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
