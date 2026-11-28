@@ -2,14 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle, Flame, Clock, RotateCcw, Brain,
-  TrendingUp, BookOpen, AlertCircle, Target, Sparkles,
-  CheckCheck, ArrowRight, BarChart2, Calendar,
+  BookOpen, Target, Sparkles,
+  CheckCheck, ArrowRight, Calendar,
   SlidersHorizontal, LayoutGrid, ListTodo
 } from 'lucide-react';
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
-  PieChart, Pie, Cell, CartesianGrid
-} from 'recharts';
 import { format } from 'date-fns';
 import { problemService } from '../services/problemService';
 import { StatCard, Card, CardHeader, CardBody } from '../components/Card';
@@ -25,15 +21,9 @@ import DailyTipWidget from '../components/widgets/DailyTipWidget';
 import DailyTasksWidget from '../components/widgets/DailyTasksWidget';
 import WidgetCustomizerModal from '../components/widgets/WidgetCustomizerModal';
 
-const DIFF_COLORS = {
-  Easy: '#10b981',
-  Medium: '#f59e0b',
-  Hard: '#ef4444',
-};
-
 const TOPIC_PALETTE = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#f97316', '#84cc16'];
 
-const WIDGETS_STORAGE_KEY = 'dsa_dashboard_widgets_v2';
+const WIDGETS_STORAGE_KEY = 'dsa_dashboard_widgets_v3';
 
 const DEFAULT_WIDGET_CONFIG = [
   {
@@ -44,9 +34,16 @@ const DEFAULT_WIDGET_CONFIG = [
     icon: CheckCircle,
   },
   {
+    id: 'revision-status',
+    label: 'Spaced-Repetition Revision Status',
+    description: 'Detailed cards for overdue, due today, due this week, and overall retention rate',
+    enabled: true,
+    icon: RotateCcw,
+  },
+  {
     id: 'daily-tasks',
-    label: "Today's Tasks & Checklist",
-    description: "Interactive daily to-do checklist, problem solving tasks, and study agenda",
+    label: 'To-Do List & Practice Goals',
+    description: 'Task checklist with quick add and daily problem/revision practice goal bars',
     enabled: true,
     icon: ListTodo,
   },
@@ -56,13 +53,6 @@ const DEFAULT_WIDGET_CONFIG = [
     description: 'Interview countdown timer and priority queue of problems due for review',
     enabled: true,
     icon: Clock,
-  },
-  {
-    id: 'daily-goals',
-    label: "Today's Daily Practice Goals",
-    description: 'Interactive progress bars for problems solved and revisions completed today',
-    enabled: true,
-    icon: Target,
   },
   {
     id: 'scratchpad-and-tip',
@@ -77,20 +67,6 @@ const DEFAULT_WIDGET_CONFIG = [
     description: 'Visual 365-day problem solving and spaced repetition heatmap',
     enabled: true,
     icon: Calendar,
-  },
-  {
-    id: 'revision-status',
-    label: 'Spaced-Repetition Revision Status',
-    description: 'Detailed cards for overdue, due today, due this week, and overall retention rate',
-    enabled: true,
-    icon: RotateCcw,
-  },
-  {
-    id: 'activity-charts',
-    label: 'Activity Chart & Difficulty Breakdown',
-    description: '7-day/30-day activity trend bar chart and difficulty distribution pie chart',
-    enabled: true,
-    icon: BarChart2,
   },
   {
     id: 'recent-and-topics',
@@ -127,7 +103,6 @@ const loadWidgetConfig = () => {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [problems, setProblems] = useState([]);
-  const [activityWindow, setActivityWindow] = useState('7d'); // '7d' or '30d'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [widgets, setWidgets] = useState(loadWidgetConfig);
@@ -212,13 +187,9 @@ export default function Dashboard() {
   };
 
   const charts = data?.charts || {
-    dailyActivity7Days: [],
-    dailyActivity30Days: [],
-    difficultyDistribution: [],
     topicProblemCounts: [],
   };
 
-  const activityData = activityWindow === '7d' ? charts.dailyActivity7Days : charts.dailyActivity30Days;
   const topicData = (charts.topicProblemCounts || []).slice(0, 6);
 
   // Recent problems (up to 5)
@@ -395,7 +366,7 @@ export default function Dashboard() {
           case 'daily-tasks':
             return (
               <div key="daily-tasks">
-                <DailyTasksWidget />
+                <DailyTasksWidget dashboardMode metrics={metrics} />
               </div>
             );
 
@@ -404,81 +375,6 @@ export default function Dashboard() {
               <div key="timer-and-revision" className="grid grid-cols-1 lg:grid-cols-2 gap-5 min-w-0">
                 <FocusTimerWidget />
                 <QuickRevisionWidget metrics={metrics} />
-              </div>
-            );
-
-          case 'daily-goals':
-            return (
-              <div key="daily-goals" className="p-4 sm:p-5 bg-white border border-gray-200/90 rounded-xl shadow-2xs">
-                <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <Target size={18} className="text-indigo-600" />
-                    <h2 className="text-sm font-bold text-gray-900">Today's Daily Practice Goals</h2>
-                  </div>
-                  {metrics.allDailyGoalsMet ? (
-                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      🎉 All daily goals achieved!
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-500">
-                      Configure targets in{' '}
-                      <button
-                        onClick={() => navigate('/settings')}
-                        className="text-indigo-600 hover:underline font-semibold"
-                      >
-                        Settings
-                      </button>
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3.5">
-                  {/* Goal 1: Problems Solved Per Day */}
-                  <div className="p-3.5 sm:p-4 bg-indigo-50/40 border border-indigo-100/80 rounded-xl space-y-2.5 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-indigo-900">Problem Solving Goal</span>
-                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100/80 px-2.5 py-0.5 rounded-full shrink-0">
-                        {metrics.problemsSolvedToday} / {metrics.dailyProblemGoal} solved
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className={`h-2.5 rounded-full transition-all duration-500 ${
-                          metrics.dailyProblemGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-indigo-600'
-                        }`}
-                        style={{ width: `${Math.min(100, metrics.dailyProblemGoalProgress)}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {metrics.dailyProblemGoalProgress >= 100
-                        ? '✓ Daily solving target reached!'
-                        : `${Math.max(0, metrics.dailyProblemGoal - metrics.problemsSolvedToday)} more problem${Math.max(0, metrics.dailyProblemGoal - metrics.problemsSolvedToday) === 1 ? '' : 's'} needed today`}
-                    </p>
-                  </div>
-
-                  {/* Goal 2: Revisions Completed Per Day */}
-                  <div className="p-3.5 sm:p-4 bg-emerald-50/40 border border-emerald-100/80 rounded-xl space-y-2.5 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-emerald-900">Revision Practice Goal</span>
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full shrink-0">
-                        {metrics.revisionsCompletedToday} / {metrics.dailyRevisionGoal} completed
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className={`h-2.5 rounded-full transition-all duration-500 ${
-                          metrics.dailyRevisionGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-600'
-                        }`}
-                        style={{ width: `${Math.min(100, metrics.dailyRevisionGoalProgress)}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {metrics.dailyRevisionGoalProgress >= 100
-                        ? '✓ Daily revision target reached!'
-                        : `${Math.max(0, metrics.dailyRevisionGoal - metrics.revisionsCompletedToday)} more revision${Math.max(0, metrics.dailyRevisionGoal - metrics.revisionsCompletedToday) === 1 ? '' : 's'} needed today`}
-                    </p>
-                  </div>
-                </div>
               </div>
             );
 
@@ -550,106 +446,6 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-              </div>
-            );
-
-          case 'activity-charts':
-            return (
-              <div key="activity-charts" className="grid grid-cols-1 lg:grid-cols-3 gap-5 min-w-0">
-                {/* Daily Activity Chart (7 Days vs 30 Days Toggle) */}
-                <Card className="lg:col-span-2 min-w-0">
-                  <CardHeader
-                    title="Daily Activity"
-                    subtitle={`Problems solved and revisions completed (${activityWindow === '7d' ? 'Last 7 days' : 'Last 30 days'})`}
-                    action={
-                      <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg">
-                        <button
-                          onClick={() => setActivityWindow('7d')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
-                            activityWindow === '7d' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          7 Days
-                        </button>
-                        <button
-                          onClick={() => setActivityWindow('30d')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
-                            activityWindow === '30d' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          30 Days
-                        </button>
-                      </div>
-                    }
-                  />
-                  <CardBody>
-                    {activityData.length === 0 || activityData.every((d) => d.totalActivity === 0) ? (
-                      <div className="py-8 text-center">
-                        <BarChart2 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-gray-500">No activity recorded in this period</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Solve a problem or complete a revision to build your activity streak!</p>
-                      </div>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={210}>
-                        <BarChart data={activityData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                          <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                          <Tooltip
-                            contentStyle={{ fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: 'none' }}
-                            labelStyle={{ fontWeight: 600, color: '#111' }}
-                            cursor={{ fill: '#f3f4f6' }}
-                          />
-                          <Bar dataKey="problemsSolved" fill="#6366f1" radius={[4, 4, 0, 0]} name="Problems Solved" />
-                          <Bar dataKey="revisionsCompleted" fill="#10b981" radius={[4, 4, 0, 0]} name="Revisions Completed" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </CardBody>
-                </Card>
-
-                {/* Difficulty Distribution Chart */}
-                <Card>
-                  <CardHeader title="Difficulty Breakdown" subtitle="Distribution of recorded problems" />
-                  <CardBody>
-                    {metrics.totalProblems === 0 ? (
-                      <EmptyState title="No problems recorded yet" description="Add your first problem to see your difficulty distribution." />
-                    ) : (
-                      <div>
-                        <ResponsiveContainer width="100%" height={170}>
-                          <PieChart>
-                            <Pie
-                              data={charts.difficultyDistribution.filter((d) => d.count > 0)}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={45}
-                              outerRadius={70}
-                              paddingAngle={3}
-                              dataKey="count"
-                            >
-                              {charts.difficultyDistribution.map((d) => (
-                                <Cell key={d.name} fill={DIFF_COLORS[d.name] || '#6366f1'} />
-                              ))}
-                            </Pie>
-                            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex justify-around items-center pt-2 border-t border-gray-100">
-                          {charts.difficultyDistribution.map((d) => (
-                            <div key={d.name} className="text-center">
-                              <p className="text-base font-bold" style={{ color: DIFF_COLORS[d.name] }}>
-                                {d.count}
-                              </p>
-                              <p className="text-xs text-gray-500 font-medium">
-                                {d.name} ({d.percentage}%)
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </CardBody>
-                </Card>
               </div>
             );
 

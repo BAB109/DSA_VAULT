@@ -270,7 +270,7 @@ function DayCell({ day, done, total }) {
 }
 
 // ─── Main Widget ──────────────────────────────────────────────────────────────
-export default function DailyTasksWidget() {
+export default function DailyTasksWidget({ dashboardMode = false, metrics = null }) {
   const todayKey = getTodayKey();
   const weekDays = getWeekDays();
   const now = new Date();
@@ -435,11 +435,15 @@ export default function DailyTasksWidget() {
         <div className="px-6 pt-5 pb-4 border-b border-gray-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{monthYear}</p>
-              <h2 className="text-lg font-bold text-gray-900 mt-0.5">To-Do Today</h2>
+              {!dashboardMode && (
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{monthYear}</p>
+              )}
+              <h2 className="text-lg font-bold text-gray-900 mt-0.5">
+                {dashboardMode ? 'To-Do List' : 'To-Do Today'}
+              </h2>
             </div>
             <div className="flex items-center gap-3">
-              {streak > 1 && (
+              {!dashboardMode && streak > 1 && (
                 <div className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">
                   <Flame size={12} />
                   {streak} day streak
@@ -456,22 +460,24 @@ export default function DailyTasksWidget() {
           </div>
         </div>
 
-        {/* ── Week Strip ── */}
-        <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/40">
-          <div className="flex items-start justify-between">
-            {weekDays.map(day => {
-              const h = weekHistory[day.key] || { done: 0, total: 0 };
-              return (
-                <DayCell
-                  key={day.key}
-                  day={day}
-                  done={day.isToday ? doneToday : h.done}
-                  total={day.isToday ? totalToday : h.total}
-                />
-              );
-            })}
+        {/* ── Week Strip (hidden in dashboardMode) ── */}
+        {!dashboardMode && (
+          <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/40">
+            <div className="flex items-start justify-between">
+              {weekDays.map(day => {
+                const h = weekHistory[day.key] || { done: 0, total: 0 };
+                return (
+                  <DayCell
+                    key={day.key}
+                    day={day}
+                    done={day.isToday ? doneToday : h.done}
+                    total={day.isToday ? totalToday : h.total}
+                  />
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Progress Bar ── */}
         <div className="px-6 py-3 border-b border-gray-50">
@@ -643,16 +649,61 @@ export default function DailyTasksWidget() {
           </section>
         </div>
 
+        {/* ── Practice Goals Status Bar (Dashboard bottom: left & right) ── */}
+        {dashboardMode && metrics && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Left: Problem Solving Goal */}
+              <div className="p-3 bg-indigo-50/50 border border-indigo-100/80 rounded-xl space-y-2 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-indigo-900">Problem Solving Goal</span>
+                  <span className="text-xs font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full shrink-0">
+                    {metrics.problemsSolvedToday} / {metrics.dailyProblemGoal} solved
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      metrics.dailyProblemGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-indigo-600'
+                    }`}
+                    style={{ width: `${Math.min(100, metrics.dailyProblemGoalProgress)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Right: Revision Practice Goal */}
+              <div className="p-3 bg-emerald-50/50 border border-emerald-100/80 rounded-xl space-y-2 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-emerald-900">Revision Practice Goal</span>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full shrink-0">
+                    {metrics.revisionsCompletedToday} / {metrics.dailyRevisionGoal} completed
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      metrics.dailyRevisionGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-600'
+                    }`}
+                    style={{ width: `${Math.min(100, metrics.dailyRevisionGoalProgress)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Footer ── */}
-        <div className="px-6 py-3 border-t border-gray-50 bg-gray-50/40 flex items-center justify-between">
-          <span className="text-2xs text-gray-400 flex items-center gap-1">
-            <Calendar size={10} />
-            Tasks reset daily at midnight
-          </span>
-          <span className="text-2xs font-semibold text-gray-400">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-          </span>
-        </div>
+        {!dashboardMode && (
+          <div className="px-6 py-3 border-t border-gray-50 bg-gray-50/40 flex items-center justify-between">
+            <span className="text-2xs text-gray-400 flex items-center gap-1">
+              <Calendar size={10} />
+              Tasks reset daily at midnight
+            </span>
+            <span className="text-2xs font-semibold text-gray-400">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+        )}
       </div>
     </>
   );
